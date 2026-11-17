@@ -55,7 +55,8 @@ em, i { font-style: normal; } /* DS: mai il corsivo nei report */
 .opener h2 { margin: 6mm 0 9mm; font: 400 @H2@pt/1.09 "Hedvig"; color: #fff; }
 .opener .osec { position: absolute; left: @ML@mm; bottom: 26mm; width: @OSW@mm; margin: 0; padding: 0; list-style: none; color: #fff; font-size: 13pt; line-height: 19pt; columns: @OSC@; column-gap: 8mm; }
 .opener .omark { position: absolute; left: @ML@mm; bottom: 12.6mm; width: 5.2mm; }
-.back { background: var(--b900); }
+/* quarta: il viola arriva fino al bordo delle abbondanze (come le foto di copertina e aperture) */
+.back::before { content: ""; position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm; background: var(--b900); }
 .back .logo { position: absolute; left: @ML@mm; bottom: 30mm; width: 48mm; }
 
 /* ------------------------------------------------------------- sommario */

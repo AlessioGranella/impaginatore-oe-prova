@@ -17,6 +17,7 @@
       .imp-sel { outline: 2px solid #4400B3 !important; outline-offset: 1px; }
       .imp-pin { position: absolute; z-index: 10; min-width: 22px; height: 22px; padding: 0 5px; border: 0; cursor: pointer;
         background: #B9FF69; color: #000; font: 500 12px/22px "Atkinson Mono", monospace; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+      body.printing [data-vivliostyle-spread-container] { display: block !important; }
       @media print {
         html, body { background: none; }
         #vp { padding: 0; zoom: 1 !important; }

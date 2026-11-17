@@ -55,6 +55,17 @@ function layoutPages(spread: boolean) {
   vp.style.zoom = String(z)
 }
 const fitZoom = layoutPages
+
+/** Disposizione per la stampa: si tolgono griglia, spazi e ingrandimento (restano le regole di Vivliostyle). */
+function printLayout() {
+  const box = document.querySelector<HTMLElement>('[data-vivliostyle-outer-zoom-box]')
+  const sc = document.querySelector<HTMLElement>('[data-vivliostyle-spread-container]')
+  vp.style.zoom = '1'
+  for (const p of ['gap', 'grid-template-columns', 'width', 'height']) sc?.style.removeProperty(p)
+  for (const p of ['width', 'height']) box?.style.removeProperty(p)
+  document.body.classList.add('printing')
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('printing'))
 window.addEventListener('resize', () => layoutPages(spreadMode))
 
 const api: ViewerApi = {
@@ -89,9 +100,11 @@ const api: ViewerApi = {
   },
   pins(p) { pinList = p; decorate() },
   print() {
-    // in stampa: una pagina per foglio, a grandezza reale (lo zoom si azzera nel CSS di stampa)
-    layoutPages(false)
+    // in stampa: una pagina per foglio, a grandezza reale, senza spazi tra le pagine
+    printLayout()
     document.querySelectorAll('.imp-sel, .imp-hover').forEach(e => e.classList.remove('imp-sel', 'imp-hover'))
+    const back = () => { window.removeEventListener('afterprint', back); layoutPages(spreadMode); decorate() }
+    window.addEventListener('afterprint', back)
     setTimeout(() => window.print(), 300)
   },
 }
