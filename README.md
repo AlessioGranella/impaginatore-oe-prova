@@ -15,6 +15,18 @@ sui server di OpenEconomics.
 4. **Salva versione** crea una versione (si possono guardare e ripristinare nella scheda Versioni).
 5. **PDF** → si apre la stampa del browser: scegli «Salva come PDF» e lascia attiva «Grafica di sfondo».
 
+### Foto
+
+Insieme al Word puoi caricare le foto (anche tutte insieme), oppure aggiungerle dopo con **Aggiungi foto**.
+Il tool le sistema da solo e alla fine mostra dove ha messo ogni foto e perché:
+
+1. una riga nel Word come `[Foto: nome-file.jpg]` mette quella foto esattamente lì;
+2. un nome di file che richiama un titolo («copertina.jpg», «ambiente.jpg») porta la foto in copertina o in quel capitolo/sezione;
+3. altrimenti il tool guarda la foto: quelle **con un soggetto** (es. un animale su fondo sfocato) vanno in copertina e nelle aperture dei capitoli, quelle **d'ambiente** (paesaggi, texture) in fondo alle sezioni, distribuite lungo il documento. È la regola fotografica del Report OE.
+
+Il ritaglio si centra sul soggetto trovato. L'analisi avviene nel browser (le foto non vanno da nessuna parte);
+sull'archivio OE riconosce correttamente 30 foto su 34. Le foto troppo piccole per la stampa vengono segnalate.
+
 ### Lavorare in più persone
 
 I documenti restano **nel browser di chi li crea**. Per passarli ai colleghi si usa il file `.oe`

@@ -158,6 +158,8 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
       if (!ch) { ch = { id: nid(), title: doc.cover.title || 'Capitolo', image: null, sections: [] }; doc.chapters.push(ch) }
       sec = newSec(txt); ch.sections.push(sec); report.sezioni++; continue
     }
+    const ph = txt.match(/^\[?\s*(?:foto|immagine|image|img)\s*[:–-]\s*(.+?)\s*\]?$/i)
+    if (ph && txt.length < 140) { push({ id: nid(), type: 'image', image: null, caption: '', ratio: 0.5625, hint: ph[1]! }); continue }
     if (lv !== null || (/^[A-Z]{1,3}\d{1,3}\s+\S/.test(txt) && txt.length < 90 && !txt.endsWith('.'))) push({ id: nid(), type: 'h4', html: esc(txt) })
     else if (/^citazione in evidenza\s*:/i.test(txt) || /quote|citazione/i.test(it.style)) push({ id: nid(), type: 'quote', html: esc(txt.replace(/^citazione in evidenza\s*:\s*/i, '')) })
     else if (it.list) push({ id: nid(), type: 'li', html: it.html })

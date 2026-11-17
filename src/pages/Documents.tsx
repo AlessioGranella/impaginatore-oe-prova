@@ -5,6 +5,8 @@ import { importFile } from '../local/file'
 import { go, useSession } from '../App'
 import type { DocRow, Fmt } from '../types'
 import TopBar from '../ui/TopBar'
+import { PhotoDrop, PhotoReport } from '../editor/PhotoReport'
+import type { Placement } from '../local/place'
 import { Icon, Menu, Modal, Segment, useToast } from '../ui/ui'
 
 export default function Documents() {
@@ -103,7 +105,8 @@ function NewDocument({ onClose }: { onClose: () => void }) {
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [done, setDone] = useState<{ id: string; report: Record<string, any> } | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [done, setDone] = useState<{ id: string; report: Record<string, any>; placements: Placement[] } | null>(null)
   const input = useRef<HTMLInputElement>(null)
 
   const pick = (f?: File | null) => {
@@ -120,8 +123,9 @@ function NewDocument({ onClose }: { onClose: () => void }) {
     fd.append('file', file)
     fd.append('title', title)
     fd.append('format', format)
+    for (const p of photos) fd.append('photos', p)
     try {
-      setDone(await api.form<{ id: string; report: Record<string, any> }>('/documents', fd))
+      setDone(await api.form<{ id: string; report: Record<string, any>; placements: Placement[] }>('/documents', fd))
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -141,7 +145,9 @@ function NewDocument({ onClose }: { onClose: () => void }) {
         </div>
         {r.immagini > 0 && <p>Ho trovato anche {r.immagini} immagini nel Word: sono già nel documento.</p>}
         {r.scartate?.length > 0 && <p className="hint">Righe di copertina non usate: {r.scartate.join(' · ')}</p>}
-        <p className="hint">Copertina e aperture dei capitoli partono con le foto dell'archivio OE: le cambi dal pannello a destra. Controlla anche i box grafici: per ognuno il tool ha scelto una forma (numeri chiave, linea del tempo, tabella…) che puoi cambiare.</p>
+        <PhotoReport items={done.placements} />
+        {!done.placements.length && <p className="hint">Nessuna foto caricata: copertina e aperture restano viola. Le foto si aggiungono anche dopo, dall'editor («Aggiungi foto»).</p>}
+        <p className="hint">Controlla anche i box grafici: per ognuno il tool ha scelto una forma (numeri chiave, linea del tempo, tabella…) che puoi cambiare.</p>
       </Modal>
     )
   }
@@ -149,7 +155,7 @@ function NewDocument({ onClose }: { onClose: () => void }) {
     <Modal title="Nuovo documento" onClose={onClose}
       foot={<>
         <button className="oe-btn oe-btn--ghost oe-btn--md" onClick={onClose}>Annulla</button>
-        <button className="oe-btn oe-btn--primary oe-btn--md" disabled={!file || busy} onClick={submit}>{busy ? 'Impagino…' : 'Importa e impagina'} <Icon name="arrow" /></button>
+        <button className="oe-btn oe-btn--primary oe-btn--md" disabled={!file || busy} onClick={submit}>{busy ? (photos.length ? 'Impagino e sistemo le foto…' : 'Impagino…') : 'Importa e impagina'} <Icon name="arrow" /></button>
       </>}>
       <div className={`drop${over ? ' is-over' : ''}`} role="button" tabIndex={0}
         onClick={() => input.current?.click()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') input.current?.click() }}
@@ -160,6 +166,7 @@ function NewDocument({ onClose }: { onClose: () => void }) {
         <input ref={input} type="file" accept=".docx" hidden onChange={e => pick(e.target.files?.[0])} />
       </div>
       {err && <div className="form-error" role="alert">{err}</div>}
+      <PhotoDrop files={photos} setFiles={setPhotos} />
       <label className="oe-field">
         <span className="oe-label">Titolo (facoltativo)</span>
         <input className="oe-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Se lo lasci vuoto uso il titolo del Word" />

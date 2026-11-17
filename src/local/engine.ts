@@ -155,7 +155,7 @@ class Renderer {
       case 'image': {
         const w = this.contentW
         const src = this.img(b.image, w, w * (b.ratio || 0.5625))
-        if (!src) return `<figure${bid}><figcaption>[immagine da scegliere]</figcaption></figure>`
+        if (!src) return `<figure${bid}><figcaption>[immagine da scegliere${b.hint ? `: ${esc(b.hint)}` : ''}]</figcaption></figure>`
         return `<figure${bid}><img src="${src}" alt="">${b.caption ? `<figcaption>${inline(b.caption)}</figcaption>` : ''}</figure>`
       }
     }

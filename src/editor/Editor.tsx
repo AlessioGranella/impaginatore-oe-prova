@@ -12,6 +12,8 @@ import LivePreview, { type LivePreviewHandle, type Pin, type Warn } from './Live
 import Outline from './Outline'
 import { clone, locate, selFromId, type Sel } from './store'
 import { Versions } from './Versions'
+import { PhotoDrop, PhotoReport } from './PhotoReport'
+import type { Placement } from '../local/place'
 
 type Tab = 'modifica' | 'commenti' | 'versioni'
 const AUTO_PREVIEW_MS = 900
@@ -41,6 +43,11 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
   const [viewing, setViewing] = useState<{ n: number; data: Doc } | null>(null)
   const [verKey, setVerKey] = useState(0)
   const [linked, setLinked] = useState<string | null>(null)
+  const [photoBox, setPhotoBox] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoReplace, setPhotoReplace] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoResult, setPhotoResult] = useState<Placement[] | null>(null)
 
   // anteprima
   const preview = useRef<LivePreviewHandle>(null)
@@ -225,6 +232,22 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
     try { await preview.current!.print(doc, mode) } catch (e) { toast((e as Error).message, true) } finally { setPrinting('') }
   }
 
+  /* ------------------------------------------------------------ foto aggiunte dopo: analisi e sistemazione */
+  const placeNow = async () => {
+    if (!draft || !photoFiles.length) return
+    setPhotoBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('data', JSON.stringify(draft))
+      fd.append('onlyEmpty', photoReplace ? '0' : '1')
+      for (const f of photoFiles) fd.append('photos', f)
+      const r = await api.form<{ data: Doc; placements: Placement[] }>(`/documents/${id}/place`, fd)
+      update(d => { Object.assign(d, r.data) })
+      setPhotoResult(r.placements)
+      setPhotoFiles([])
+    } catch (e) { toast((e as Error).message, true) } finally { setPhotoBusy(false) }
+  }
+
   /* ------------------------------------------------------------ file .oe */
   const exportFile = async () => {
     if (dirty) toast('Il file contiene le versioni salvate: le modifiche in bozza non sono incluse.')
@@ -343,6 +366,9 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
       )}
       <div className="ed">
         <aside className="ed__outline">
+          {canEdit && <div style={{ padding: '0 var(--oe-space-m) var(--oe-space-xs)' }}>
+            <button className="oe-btn oe-btn--secondary oe-btn--sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setPhotoResult(null); setPhotoBox(true) }}><Icon name="image" />Aggiungi foto</button>
+          </div>}
           <Outline doc={shownDoc!} sel={sel} setSel={s => { setSel(s); if (tab === 'versioni') setTab('modifica') }} counts={counts} canEdit={canEdit} update={update} />
         </aside>
         <section className="ed__preview ed__preview--live" aria-label="Anteprima delle pagine">
@@ -366,6 +392,25 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
           </div>
         </aside>
       </div>
+      {photoBox && (
+        <Modal title={photoResult ? 'Dove ho messo le foto' : 'Aggiungi foto'} onClose={() => setPhotoBox(false)}
+          foot={photoResult
+            ? <button className="oe-btn oe-btn--primary oe-btn--md" onClick={() => setPhotoBox(false)}>Fatto</button>
+            : <><button className="oe-btn oe-btn--ghost oe-btn--md" onClick={() => setPhotoBox(false)}>Annulla</button>
+              <button className="oe-btn oe-btn--primary oe-btn--md" disabled={!photoFiles.length || photoBusy} onClick={placeNow}>{photoBusy ? 'Guardo le foto…' : 'Sistema le foto'} <Icon name="arrow" /></button></>}>
+          {photoResult ? (
+            <>
+              <PhotoReport items={photoResult} />
+              <p className="hint">Le foto sono nella bozza: se il risultato non ti convince premi Annulla (⌘Z), altrimenti «Salva versione».</p>
+            </>
+          ) : (
+            <>
+              <PhotoDrop files={photoFiles} setFiles={setPhotoFiles} />
+              <label className="oe-check"><input type="checkbox" checked={photoReplace} onChange={e => setPhotoReplace(e.target.checked)} /> Sostituisci anche le foto già messe (altrimenti riempio solo i posti vuoti)</label>
+            </>
+          )}
+        </Modal>
+      )}
       {printHelp && (
         <Modal title={printHelp === 'print' ? 'PDF per la tipografia' : 'PDF digitale'} onClose={() => setPrintHelp('')}
           foot={<><button className="oe-btn oe-btn--ghost oe-btn--md" onClick={() => setPrintHelp('')}>Annulla</button>

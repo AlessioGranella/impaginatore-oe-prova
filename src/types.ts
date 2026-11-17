@@ -11,7 +11,7 @@ export interface TableBlock {
   id: string; type: 'table'; view: View; header: boolean; caption: string
   rows: string[][]; icons: (string | null)[]
 }
-export interface ImageBlock { id: string; type: 'image'; image: ImageRef | null; caption: string; ratio: number }
+export interface ImageBlock { id: string; type: 'image'; image: ImageRef | null; caption: string; ratio: number; hint?: string }
 export type Block = TextBlock | TableBlock | ImageBlock
 
 export interface Layout {

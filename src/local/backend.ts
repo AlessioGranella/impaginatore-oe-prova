@@ -4,6 +4,23 @@ import type { Comment, Doc, DocFull, DocRow, Fmt, Me, User, VersionRow } from '.
 import * as db from './db'
 import { importDocx } from './docx'
 import { loadDocAssets, loadLibrary, saveAsset } from './images'
+import { analyzePhoto } from './photo'
+import { placePhotos, type Placement, type PhotoIn } from './place'
+
+/** Salva le foto caricate, le analizza e le sistema nel documento (vedi place.ts). */
+async function addPhotos(docId: string, doc: Doc, files: File[], onlyEmpty: boolean): Promise<Placement[]> {
+  const ins: PhotoIn[] = []
+  const skipped: Placement[] = []
+  for (const f of files) {
+    try {
+      const a = await saveAsset(docId, f, f.name.replace(/\.[^.]+$/, ''), 'caricata')
+      ins.push({ id: a.id, name: f.name, info: await analyzePhoto(f) })
+    } catch {
+      skipped.push({ photo: '', name: f.name, kind: 'ambiente', where: null, reason: 'Il file non è un\'immagine leggibile (usa JPG o PNG).' })
+    }
+  }
+  return [...placePhotos(doc, ins, onlyEmpty), ...skipped]
+}
 
 export interface LocalDoc { id: string; title: string; format: Fmt; created_at: number; updated_at: number; head: number; author: string; source_name?: string }
 export interface LocalVersion { id: string; docId: string; number: number; data: Doc; author: string; message: string; created_at: number }
@@ -73,8 +90,10 @@ export async function handle(method: string, url: string, body?: unknown): Promi
       doc.meta.format = format
       doc.meta.title = title || doc.meta.title || file.name.replace(/\.docx$/i, '')
       if (title) doc.cover.title = doc.cover.title || title
-      await newVersion(id, doc, `Importato da ${file.name}`)
-      return { id, report }
+      const photos = (f.getAll('photos') as File[]).filter(x => x && x.size)
+      const placements = photos.length ? await addPhotos(id, doc, photos, true) : []
+      await newVersion(id, doc, `Importato da ${file.name}${photos.length ? ` con ${photos.length} foto` : ''}`)
+      return { id, report, placements }
     } catch (e) {
       await db.delDoc(id)
       throw new HttpError(400, `Non riesco a leggere il Word: ${(e as Error).message}`)
@@ -107,6 +126,13 @@ export async function handle(method: string, url: string, body?: unknown): Promi
     }
     await newVersion(id, JSON.parse(fixed), `Copia di «${src.title}»`)
     return { id }
+  }
+  if ((x = m(/^\/documents\/([\w-]+)\/place$/))) {
+    // foto aggiunte dall'editor: si sistemano nella bozza (che poi si salva come sempre)
+    const f = body as FormData
+    const doc = JSON.parse(String(f.get('data'))) as Doc
+    const placements = await addPhotos(x[1]!, doc, (f.getAll('photos') as File[]).filter(p => p && p.size), f.get('onlyEmpty') !== '0')
+    return { data: doc, placements }
   }
   if ((x = m(/^\/documents\/([\w-]+)\/versions$/))) {
     const id = x[1]!
