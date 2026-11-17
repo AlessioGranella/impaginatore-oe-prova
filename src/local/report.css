@@ -1,0 +1,189 @@
+/* Modello «Report» — OpenEconomics. Token dal design system OE (colors_and_type.css).
+   Le misure tra @…@ sono sostituite dal motore in base al formato (vedi engine.FORMATS). */
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-Medium.ttf); font-weight: 500; }
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: "Hedvig"; src: url(fonts/HedvigLettersSerif-18pt-Regular.ttf); }
+@font-face { font-family: "Atkinson Mono"; src: url(fonts/AtkinsonMono-400.ttf); font-weight: 400; }
+@font-face { font-family: "Atkinson Mono"; src: url(fonts/AtkinsonMono-500.ttf); font-weight: 500; }
+
+:root {
+  --b900: #270065; --b800: #340088; --b700: #4400B3; --b500: #6E1AFF; --b300: #A16AFF; --b200: #B991FF; --b100: #D9C1FF; --b050: #EFE5FF;
+  --lime: #B9FF69; --g800: #2C2C2C; --g700: #545454; --g600: #6E6E6E; --g300: #D2D2D2; --g200: #E7E7E7; --g100: #F1F1F1;
+}
+
+/* ------------------------------------------------------------- pagine */
+@page {
+  size: @PW@mm @PH@mm; margin: @MT@mm @MR@mm @MB@mm @ML@mm; @BLEED@
+  @top-left { content: string(chap); font: 500 7pt/1 "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; color: var(--b700); vertical-align: bottom; padding-bottom: 6mm; }
+  @bottom-left { content: element(pfl, first-except); width: 8mm; }
+  @bottom-right { content: element(pfr, first-except); }
+  /* foto della sezione in fondo alla pagina, al vivo (area note usata come «float bottom») */
+  @footnote { margin: 8mm -@FNX@mm -@FNB@mm; }
+}
+.pfl { position: running(pfl); } .pfl img { display: block; width: 5.2mm; height: 5.2mm; }
+.pfr { position: running(pfr); text-align: right; font: 500 7pt/1 "Atkinson Mono"; color: var(--g800); }
+.pfr::after { content: counter(page); }
+::footnote-call { content: none; } ::footnote-marker { content: none; }
+@page full { margin: 0; @top-left { content: none } @bottom-left { content: none } @bottom-right { content: none } }
+@page dark { background: var(--b900);
+  @top-left { color: var(--lime); }
+  @bottom-left { content: ""; background: url(logos/logo-mark-white.svg) no-repeat left center; background-size: 5.2mm 5.2mm; }
+  @bottom-right { content: counter(page); font: 500 7pt/1 "Atkinson Mono"; color: #fff; } }
+
+html { hyphenate-character: "-"; font-family: "Atkinson Next"; font-size: 9.5pt; line-height: 14pt; color: var(--g800); }
+body { margin: 0; }
+p { margin: 0 0 2.4mm; hyphens: auto; orphans: 2; widows: 2; }
+strong { font-weight: 600; }
+em, i { font-style: normal; } /* DS: mai il corsivo nei report */
+.chapmark { string-set: chap content(); height: 0; overflow: hidden; }
+.chip { display: inline-block; background: var(--lime); color: #000; font: 500 7pt/9pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; padding: 1.3mm 2mm 1.1mm; }
+
+/* ------------------------------------------------------------- copertina, aperture, quarta */
+.cover, .opener, .back { page: full; position: relative; height: @PH@mm; break-before: page; break-after: page; }
+.cover .ph, .opener .ph { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm; background-size: cover; background-position: center; }
+.shade-top { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm;
+  background: linear-gradient(to bottom, rgba(39,0,101,.88) 0%, rgba(39,0,101,.55) 28%, rgba(39,0,101,0) 55%); }
+.shade-bot { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm;
+  background: linear-gradient(to top, rgba(39,0,101,.9) 0%, rgba(39,0,101,.5) 25%, rgba(39,0,101,0) 50%); }
+.shade-bot.soft { background: linear-gradient(to top, rgba(39,0,101,.85) 0%, rgba(39,0,101,.45) 22%, rgba(39,0,101,0) 40%); }
+.cover .logo { position: absolute; top: 18mm; left: @ML@mm; width: 58mm; }
+.cover .ctitle { position: absolute; left: @ML@mm; bottom: 30mm; width: @CTW@mm; }
+.cover h1 { font: 400 @H1@pt/1.08 "Hedvig"; color: #fff; margin: 0 0 7mm; }
+.cover .csub { font: 500 9pt/11pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; color: var(--lime); }
+.otext { position: absolute; top: @OTOP@mm; left: @ML@mm; width: @CTW@mm; }
+.opener h2 { margin: 6mm 0 9mm; font: 400 @H2@pt/1.09 "Hedvig"; color: #fff; }
+.opener .osec { position: absolute; left: @ML@mm; bottom: 26mm; width: @OSW@mm; margin: 0; padding: 0; list-style: none; color: #fff; font-size: 13pt; line-height: 19pt; columns: @OSC@; column-gap: 8mm; }
+.opener .omark { position: absolute; left: @ML@mm; bottom: 12.6mm; width: 5.2mm; }
+.back { background: var(--b900); }
+.back .logo { position: absolute; left: @ML@mm; bottom: 30mm; width: 48mm; }
+
+/* ------------------------------------------------------------- sommario */
+.tocpage { break-before: page; break-after: page; }
+.toc { columns: @TOCC@; column-gap: 10mm; margin-top: 4mm; }
+.tc { font-weight: 500; font-size: 10.5pt; line-height: 14pt; color: var(--b700); margin: 5mm 0 1.5mm; break-after: avoid; }
+.tc a { color: inherit; text-decoration: none; }
+.tn { font: 500 7.5pt "Atkinson Mono"; margin-right: 3mm; }
+.ts { font-size: 9pt; line-height: 13pt; padding-left: 8.5mm; }
+.ts a { color: var(--g800); text-decoration: none; display: flex; }
+.ts a::after { content: target-counter(attr(href), page); margin-left: auto; padding-left: 3mm; font: 500 7.5pt/13pt "Atkinson Mono"; color: var(--b700); }
+
+/* ------------------------------------------------------------- sezioni */
+.sec { margin-top: 12mm; }
+.sec.hasband, .opener + .sec, .sec.newpage { break-before: page; margin-top: 0; }
+.band { float: footnote; height: @BAND@mm; box-sizing: border-box; background-size: cover; background-position: center; padding: @BANDPAD@mm @MR@mm 0 @ML@mm; }
+.band .bfoot { height: @MB@mm; display: flex; justify-content: space-between; align-items: center; }
+.band .bfoot img { width: 5.2mm; height: 5.2mm; }
+.band .bpn { font: 500 7pt/1 "Atkinson Mono"; color: #fff; }
+.band .bpn::after { content: counter(page); }
+.head { break-inside: avoid; }
+.sechead { margin-bottom: 8mm; }
+.sechead h3 { font: 400 28pt/32pt "Hedvig"; color: var(--g800); margin: 3.5mm 0 0; width: 80%; }
+.c1 .head p.lead { margin-left: @SIDE@mm; }
+.c2 .head p.lead, .cw .head p.lead { margin-bottom: 5mm; width: 85%; }
+.flow .cols { column-gap: 6mm; column-fill: balance; }
+.c1 .flow .cols { columns: @C1COLS@; }
+.c2 .flow .cols { columns: @C2COLS@; }
+.c1 .flow { margin-left: @SIDE@mm; }
+.c1 .flow > .box, .c1 .flow > table, .c1 .flow > figure { margin-left: -@SIDE@mm; }
+.flow::after { content: ""; display: block; clear: both; height: 0; }
+
+p.lead { font-size: 13pt; line-height: 18pt; margin-bottom: 4mm; hyphens: manual; }
+h4 { font-weight: 500; font-size: 10.5pt; line-height: 14pt; color: var(--b700); margin: 3.5mm 0 1.2mm; break-after: avoid; }
+p.li { padding-left: 5mm; margin-bottom: 1.4mm; position: relative; }
+p.li::before { content: ""; position: absolute; left: 0; top: 1.6mm; width: 1.8mm; height: 1.8mm; background: var(--b700); }
+p.sign { font-weight: 500; margin: 0 0 .5mm; }
+p.sign + p.sign { font-weight: 400; }
+blockquote { font: 400 17pt/22pt "Hedvig"; color: var(--b700); margin: 5mm 0 6mm; padding: 1mm 0 1mm 6mm; border-left: 3pt solid var(--lime); break-inside: avoid; }
+blockquote.side { float: left; width: @SIDEW@mm; box-sizing: border-box; margin: 1mm 0 4mm -@SIDE@mm; font-size: 11pt; line-height: 14.5pt; hyphens: manual; padding: .5mm 0 .5mm 4mm; border-left-width: 2.5pt; }
+p.note { font-size: 7.5pt; line-height: 10.5pt; color: var(--g600); margin: 1.5mm 0 2mm; }
+figure { margin: 5mm 0 4mm; break-inside: avoid; }
+figure img { display: block; width: 100%; }
+figcaption { font-size: 7.5pt; line-height: 10.5pt; color: var(--g600); margin-top: 2mm; }
+
+/* ------------------------------------------------------------- tabelle */
+table { width: 100%; border-collapse: collapse; font-size: 7.5pt; line-height: 10pt; margin: 1mm 0 3mm; }
+th { font: 500 6.5pt/8.5pt "Atkinson Mono"; letter-spacing: .02em; text-transform: uppercase; color: var(--b700); text-align: left; vertical-align: bottom; padding: 1.4mm 1.2mm; border-bottom: 1pt solid var(--b700); }
+td { vertical-align: top; padding: 1.4mm 1.2mm; border-bottom: .4pt solid var(--g300); hyphens: auto; }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.tot { font-weight: 500; }
+tr { break-inside: avoid; }
+tr.grp td { background: var(--b050); font-weight: 500; color: var(--b700); }
+.tbox { margin: 5mm 0 2mm; }
+
+/* ------------------------------------------------------------- box grafici */
+.box { break-inside: avoid; margin: 5mm 0 2mm; padding-bottom: 6mm; }
+.bcap { font: 400 14pt/17pt "Hedvig"; color: var(--g800); margin-bottom: 5mm; }
+.mono { font: 500 6.8pt/9pt "Atkinson Mono"; letter-spacing: .03em; text-transform: uppercase; color: var(--b700); }
+.code { font-family: "Atkinson Mono"; font-weight: 500; color: var(--b700); }
+.kpi { display: grid; column-gap: 6mm; row-gap: 6mm; }
+.kpi.c1 { grid-template-columns: 1fr; } .kpi.c2 { grid-template-columns: 1fr 1fr; } .kpi.c3 { grid-template-columns: 1fr 1fr 1fr; } .kpi.c4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.k { border-top: 1pt solid var(--b700); padding-top: 3mm; }
+.kn { font: 400 30pt/32pt "Hedvig"; color: var(--b700); margin-bottom: 2.5mm; }
+.kl { font-size: 8.5pt; line-height: 11.5pt; }
+
+.trow { display: flex; position: relative; padding-bottom: 6mm; }
+.trow::before { content: ""; position: absolute; left: 0; top: 1mm; width: 2.4mm; height: 2.4mm; background: var(--b700); }
+.trow.last::before { background: var(--lime); }
+.trow::after { content: ""; position: absolute; left: 1.15mm; top: 3.4mm; bottom: 0; border-left: .6pt solid var(--b200); }
+.trow.last::after { display: none; }
+.ty { width: 42mm; padding-left: 6mm; box-sizing: border-box; font: 400 14pt/17pt "Hedvig"; color: var(--b700); flex: none; }
+.tb { flex: 1; }
+.tt { font-weight: 500; font-size: 9.5pt; line-height: 12.5pt; margin-top: .6mm; }
+.td { font-size: 8.5pt; line-height: 11.5pt; color: var(--g700); margin-top: 1.2mm; }
+
+.vrow { display: flex; border-top: .4pt solid var(--g300); padding: 3.5mm 0 4mm; }
+.vrow:first-child { border-top: 1pt solid var(--b700); }
+.vn { width: 42mm; flex: none; font: 400 16pt/19pt "Hedvig"; color: var(--b700); }
+.vd { flex: 1; padding-top: .8mm; }
+
+.el { display: grid; column-gap: 6mm; row-gap: 6mm; }
+.el.c1 { grid-template-columns: 1fr; } .el.c2 { grid-template-columns: 1fr 1fr; } .el.c3 { grid-template-columns: 1fr 1fr 1fr; } .el.c4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.enum { width: 7mm; height: 7mm; background: var(--b700); color: #fff; font: 500 8pt/7mm "Atkinson Mono"; text-align: center; margin-bottom: 3mm; }
+.eic { width: 11mm; height: 11mm; display: block; margin-bottom: 3mm; }
+.eh { font-weight: 500; font-size: 9.5pt; line-height: 12.5pt; color: var(--b700); margin-bottom: 1mm; }
+.et { font-size: 9pt; line-height: 12pt; }
+
+.frow { display: flex; align-items: center; min-height: 7mm; }
+.fl { width: 62mm; flex: none; font-size: 8.5pt; line-height: 10pt; padding-right: 3mm; box-sizing: border-box; }
+.fb { flex: 1; display: flex; align-items: center; }
+.fbar { height: 4.4mm; background: var(--b700); }
+.fv { font: 500 8pt "Atkinson Mono"; color: var(--b700); margin-left: 2mm; white-space: nowrap; }
+
+.bar { display: flex; height: 9mm; gap: .8mm; }
+.seg { height: 100%; }
+.s0 { background: var(--b700); } .s1 { background: var(--b500); } .s2 { background: var(--b300); } .s3 { background: var(--b100); } .s4 { background: var(--lime); } .s5 { background: var(--b900); }
+.labs { display: flex; flex-wrap: wrap; gap: 1.5mm 6mm; margin-top: 3mm; font-size: 8pt; line-height: 10pt; }
+.sw { display: inline-block; width: 2.6mm; height: 2.6mm; margin-right: 1.6mm; vertical-align: -.3mm; }
+
+.cgrid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6mm; row-gap: 4mm; }
+.cc { border-top: .8pt solid var(--b700); padding-top: 2.6mm; }
+.cc .code { font-size: 7.5pt; line-height: 9.5pt; }
+.cd { font-size: 8.5pt; line-height: 11pt; margin-top: 1.4mm; }
+
+/* ------------------------------------------------------------- pagina numeri chiave (scura) */
+.hl-page { page: dark; break-before: page; break-after: page; color: #fff; }
+.hl-page .sechead h3 { color: #fff; font-size: 44pt; line-height: 48pt; }
+.hgrid { display: grid; grid-template-columns: @HLCOLS@; column-gap: 8mm; margin-top: 12mm; }
+.hk { border-top: .8pt solid var(--b500); padding-top: 5mm; min-height: @HKH@mm; box-sizing: border-box; }
+.hk:first-child { border-top-color: var(--lime); }
+.hn { font: 400 40pt/42pt "Hedvig"; color: var(--lime); margin-bottom: 3mm; }
+.hl { font-size: 9.5pt; line-height: 13pt; width: 90%; }
+
+/* ornamento pixel nella colonna di margine (sezioni a colonna singola) */
+.sechead.has-orn { position: relative; }
+.orn { position: absolute; left: 0; top: 46mm; width: @SIDEW@mm; height: @SIDEW@mm; }
+
+/* sezioni compatte: evitano pagine con poche righe prima di aperture e bande */
+.tight p { margin-bottom: 1.4mm; }
+.tight .sechead { margin-bottom: 5mm; }
+.tight p.lead { margin-bottom: 3mm; }
+.tight blockquote { margin: 3mm 0 4mm; }
+.tight .box { margin-top: 3mm; padding-bottom: 4mm; }
+.tight .band { height: @BAND1@mm; padding-top: @BANDPAD1@mm; }
+.tight.t2 .flow { line-height: 13.4pt; }
+.tight.t2 .band { height: @BAND2@mm; padding-top: @BANDPAD2@mm; }
+.tight.t3 .flow { line-height: 13.2pt; }
+.tight.t3 p { margin-bottom: 1.1mm; }
+.tight.t3 p.lead { font-size: 12pt; line-height: 16.5pt; }
+.tight.t3 .sechead { margin-bottom: 4mm; }

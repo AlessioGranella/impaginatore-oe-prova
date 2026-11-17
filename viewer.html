@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <title>Anteprima — Impaginatore OE</title>
+    <style>
+      html, body { margin: 0; background: #E7E7E7; }
+      #vp { padding: 24px 0 96px; }
+      /* tutte le pagine visibili e in griglia (Vivliostyle di serie ne mostra una alla volta, in fila).
+         Le misure della griglia le calcola layoutPages() in src/viewer/main.ts. */
+      [data-vivliostyle-page-container] { display: block !important; position: relative !important; left: auto !important; top: auto !important; margin: 0 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 18px rgba(39,0,101,.08); }
+      [data-vivliostyle-spread-container] { position: relative !important; left: auto !important; top: auto !important; display: grid !important; justify-content: start; align-content: start; }
+      [data-vivliostyle-outer-zoom-box] { margin: 0 auto; overflow: hidden; }
+      .imp-hover { outline: 1px solid rgba(68,0,179,.55); outline-offset: 1px; cursor: pointer; }
+      .imp-sel { outline: 2px solid #4400B3 !important; outline-offset: 1px; }
+      .imp-pin { position: absolute; z-index: 10; min-width: 22px; height: 22px; padding: 0 5px; border: 0; cursor: pointer;
+        background: #B9FF69; color: #000; font: 500 12px/22px "Atkinson Mono", monospace; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+      @media print {
+        html, body { background: none; }
+        #vp { padding: 0; zoom: 1 !important; }
+        [data-vivliostyle-page-container] { box-shadow: none; }
+        .imp-pin { display: none; }
+        .imp-hover, .imp-sel { outline: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="vp"></div>
+    <script type="module" src="/src/viewer/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,63 @@
+// Modello del documento: è lo stesso JSON che il server salva in ogni versione (vedi backend/app/render/engine.py).
+
+export type Fmt = 'a4v' | 'a4o'
+export interface ImageRef { asset: string; cx: number; cy: number; zoom: number }
+
+export type TextType = 'p' | 'h4' | 'li' | 'quote' | 'note' | 'sign'
+export type View = 'tabella' | 'kpi' | 'timeline' | 'valori' | 'elenco' | 'barre' | 'segmenti' | 'codici'
+
+export interface TextBlock { id: string; type: TextType; html: string; lead?: boolean }
+export interface TableBlock {
+  id: string; type: 'table'; view: View; header: boolean; caption: string
+  rows: string[][]; icons: (string | null)[]
+}
+export interface ImageBlock { id: string; type: 'image'; image: ImageRef | null; caption: string; ratio: number }
+export type Block = TextBlock | TableBlock | ImageBlock
+
+export interface Layout {
+  cols: 1 | 2 | 'w'; mode: 'normal' | 'highlights'; band: ImageRef | null
+  tight: number; ornament: string | null; newpage?: boolean
+}
+export interface Section { id: string; title: string; layout: Layout; blocks: Block[] }
+export interface Chapter { id: string; title: string; image: ImageRef | null; sections: Section[] }
+export interface Doc {
+  meta: { title: string; format: Fmt }
+  cover: { id: string; title: string; subtitle: string; image: ImageRef | null }
+  toc: { show: boolean; title: string }
+  chapters: Chapter[]
+  back: { show: boolean }
+}
+
+export interface User { id: string; email: string; name: string; is_admin: boolean }
+export interface Me extends User { ai: boolean; mail: boolean; formats: Record<string, string> }
+export type Role = 'proprietario' | 'modifica' | 'commento'
+export interface DocRow {
+  id: string; title: string; format: Fmt; updated_at: number; created_at: number; head: number
+  role: Role; author: string; open_comments: number; source_name?: string
+}
+export interface DocFull extends DocRow { data: Doc; members: (User & { role: Role })[] }
+export interface VersionRow { number: number; message: string; created_at: number; author: string }
+export interface Asset {
+  id: string; kind: 'foto' | 'icona' | 'illustrazione'; source: string; name: string
+  category?: string; width?: number; height?: number; meta?: Record<string, string>
+}
+export interface Box { x: number; y: number; w: number; h: number }
+export interface PageR { n: number; img: string; w: number; h: number; boxes: Record<string, Box> }
+export interface Warning { section: string; title: string; page: number; fill: number; tight: number }
+export interface RenderResult { key: string; pages: PageR[]; warnings: Warning[]; changes: Record<string, number> }
+export interface Comment {
+  id: string; document_id: string; version: number; block_id: string | null; page: number | null
+  author_id: string; author: string; body: string; parent_id: string | null; resolved: boolean
+  created_at: number; mentions: string[]
+}
+export interface Notification {
+  id: string; document_id: string; document_title: string; comment_id: string | null; kind: string
+  actor: string; comment_body: string | null; read: number; created_at: number
+}
+export interface Job<T = unknown> { id: string; status: 'in_coda' | 'in_corso' | 'fatto' | 'errore'; result: T | null; error: string | null }
+
+// misure dei formati (le stesse del motore) per i ritagli delle foto
+export const FORMAT_DIMS: Record<Fmt, { PW: number; PH: number; BAND: number }> = {
+  a4v: { PW: 210, PH: 297, BAND: 118 },
+  a4o: { PW: 297, PH: 210, BAND: 78 },
+}
