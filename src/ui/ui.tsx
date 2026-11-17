@@ -17,6 +17,7 @@ const P: Record<string, ReactNode> = {
   comment: <path d="M4 5h16v11H9l-5 4V5Z" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   image: <path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01" />,
+  shuffle: <path d="M3 7h4l9 10h5M3 17h4l2.6-3M13.4 10 16 7h5M18 4l3 3-3 3M18 14l3 3-3 3" />,
   refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" />,
   check: <path d="m5 12 5 5 9-10" />,
   user: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />,

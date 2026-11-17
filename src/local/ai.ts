@@ -24,7 +24,7 @@ Modello del documento:
 - toc: { show, title }   (id "toc")
 - chapters[]: { id, title, image, sections[] }   (capitolo = pagina di apertura con foto)
 - sections[]: { id, title, kicker?, layout, blocks[] }
-  - layout (bilancio): cols 1|2|"w", mode "normal"|"highlights", band (foto in fondo), tight 0-3 (compattezza), ornament, newpage
+  - layout (bilancio): look = "colonne" (testo a colonne) | "margine" (una colonna con margine) | "dato" (numero del testo in grande in apertura, hero {n, l}) | "card" (voci brevi in riquadri grigi) | "citazione" (citazioni grandi) | "numeri" (pagina viola coi numeri della tabella) | "largo" (tabelle a tutta larghezza); band (foto in fondo), tight 0-3 (compattezza), ornament, newpage. Per cambiare impaginazione cambia look (cols e mode ne derivano). Alterna le modalità: mai tre uguali di fila.
   - layout (brochure): page = "testo" | "card" | "colore" | "prodotto" | "numeri" | "griglia" | "citazione"; circle "magenta"|"verde"|"lime"|"bluette" e circleFit "ritaglia"|"sopra" per la pagina prodotto; band = foto della pagina colore o del cerchio
   - nella brochure ogni sezione è UNA pagina: kicker è l'etichetta della chip, title il titolo grande. La pagina testo usa coppie h4 (voce) + p; card e griglia usano la prima tabella (colonna 1 titolo, colonna 2 testo) o le coppie h4 + p; numeri usa una tabella kpi (valore · unità · descrizione oppure valore · descrizione); citazione usa blocchi quote (il grassetto diventa colore).
 - blocks[]: { id, type, ... }
@@ -158,6 +158,15 @@ function layout(x: unknown, prev: Layout, ok: Set<string>): Layout {
   if ((PAGES as string[]).includes(str(o.page))) L.page = o.page as PageType
   if (['magenta', 'verde', 'lime', 'bluette'].includes(str(o.circle))) L.circle = o.circle as Layout['circle']
   if (o.circleFit === 'ritaglia' || o.circleFit === 'sopra') L.circleFit = o.circleFit
+  const LOOKS = ['colonne', 'margine', 'largo', 'numeri', 'dato', 'card', 'citazione']
+  if (LOOKS.includes(str(o.look)) && o.look !== prev.look) {
+    // una modalità cambiata dall'AI conta come scelta a mano: colonne e pagina viola ne derivano
+    L.look = o.look as Layout['look']; L.auto = false
+    L.mode = L.look === 'numeri' ? 'highlights' : 'normal'
+    L.cols = L.look === 'margine' || L.look === 'citazione' ? 1 : L.look === 'largo' ? 'w' : L.look === 'dato' ? (L.cols === 1 ? 1 : 2) : 2
+  }
+  if ('page' in o && o.page !== prev.page && L.page) L.auto = false
+  if (o.hero && typeof o.hero === 'object') { const h = o.hero as Record<string, unknown>; L.hero = { n: plain(h.n, prev.hero?.n ?? '').slice(0, 20), l: plain(h.l, prev.hero?.l ?? '').slice(0, 220) } }
   return L
 }
 function section(x: unknown, prev: Section | undefined, ok: Set<string>, ids: Set<string>): Section {

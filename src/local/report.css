@@ -77,7 +77,7 @@ em, i { font-style: normal; } /* DS: mai il corsivo nei report */
 .band .bfoot img { width: 5.2mm; height: 5.2mm; }
 .band .bpn { font: 500 7pt/1 "Atkinson Mono"; color: #fff; }
 .band .bpn::after { content: counter(page); }
-.head { break-inside: avoid; }
+.head { break-inside: avoid; break-after: avoid; }
 .sechead { margin-bottom: 8mm; }
 .sechead h3 { font: 400 28pt/32pt "Hedvig"; color: var(--g800); margin: 3.5mm 0 0; width: 80%; }
 .c1 .head p.lead { margin-left: @SIDE@mm; }
@@ -87,7 +87,7 @@ em, i { font-style: normal; } /* DS: mai il corsivo nei report */
 .c2 .flow .cols { columns: @C2COLS@; }
 .c1 .flow { margin-left: @SIDE@mm; }
 .c1 .flow > .box, .c1 .flow > table, .c1 .flow > figure { margin-left: -@SIDE@mm; }
-.flow::after { content: ""; display: block; clear: both; height: 0; }
+.flow { display: flow-root; }
 
 p.lead { font-size: 13pt; line-height: 18pt; margin-bottom: 4mm; hyphens: manual; }
 h4 { font-weight: 500; font-size: 10.5pt; line-height: 14pt; color: var(--b700); margin: 3.5mm 0 1.2mm; break-after: avoid; }
@@ -188,3 +188,29 @@ tr.grp td { background: var(--b050); font-weight: 500; color: var(--b700); }
 .tight.t3 p { margin-bottom: 1.1mm; }
 .tight.t3 p.lead { font-size: 12pt; line-height: 16.5pt; }
 .tight.t3 .sechead { margin-bottom: 4mm; }
+
+/* ------------------------------------------------------------- modalità scelte dal regista */
+/* dato in apertura: un numero del testo in grande, con la sua frase */
+.dato { display: flex; align-items: flex-end; gap: 7mm; border-top: 1pt solid var(--b700); padding-top: 4mm; margin: 0 0 7mm; break-inside: avoid; }
+.dato .dn { font: 400 54pt/54pt "Hedvig"; color: var(--b700); white-space: nowrap; flex: none; }
+.dato .du { display: block; font: 400 16pt/20pt "Hedvig"; margin-top: 1.5mm; white-space: normal; max-width: 50mm; }
+.dato .dl { flex: 1; font-size: 11pt; line-height: 15pt; max-width: 105mm; padding-bottom: 1.5mm; }
+.c1 .dato { margin-left: @SIDE@mm; }
+/* citazione grande, a tutta larghezza */
+blockquote.big { font: 400 26pt/33pt "Hedvig"; color: var(--b700); width: 88%; margin: 9mm 0 10mm; padding: 1mm 0 1.5mm 8mm; border-left: 4pt solid var(--lime); hyphens: manual; }
+.c1 .flow > blockquote.big { margin-left: -@SIDE@mm; }
+/* voci brevi come card grigie, a righe */
+.cardrow { margin: 4mm 0; break-inside: avoid; }
+.cards { display: grid; column-gap: 4mm; }
+.cards.c2 { grid-template-columns: 1fr 1fr; } .cards.c3 { grid-template-columns: 1fr 1fr 1fr; } .cards.c4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.card { background: var(--g100); padding: 4.5mm 4.5mm 5.5mm; }
+.card h4 { margin-top: 0; }
+.card p:last-child { margin-bottom: 0; }
+.card .enum { margin-bottom: 3mm; }
+.c1 .flow > .cardrow { margin-left: -@SIDE@mm; }
+/* testo nella pagina viola dei numeri */
+.hlead { width: 75%; margin-top: 6mm; color: #fff; }
+.hlead p { font-size: 11pt; line-height: 15pt; }
+
+/* nessun asset grafico si deforma: marchi, icone e loghi a misura fissa restano in proporzione */
+img { object-fit: contain; }

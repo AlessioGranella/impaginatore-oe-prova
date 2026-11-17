@@ -3,7 +3,7 @@
 import JSZip from 'jszip'
 import { nid } from '../api'
 import type { Block, Chapter, Doc, Kind, Section, View } from '../types'
-import { guessPage } from './brochure'
+import { compose, numLike } from './regista'
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -29,7 +29,7 @@ function guessView(rows: string[][], caption: string): View {
   if (!two.length || (rows[0]?.length ?? 0) > 2) return 'tabella'
   const first = two.map(r => r[0]!.trim()).filter(Boolean)
   if (first.every(x => /^(19|20)\d\d$/.test(x))) return 'timeline'
-  if (first.every(x => /\d/.test(x) && x.length <= 14)) return 'kpi'
+  if (first.every(x => numLike(x) && x.length <= 14)) return 'kpi'
   if (first.every(x => /^[A-Z0-9/ .:-]{2,24}$/.test(x))) return 'codici'
   if (first.every(x => x.length <= 40)) return 'valori'
   return 'tabella'
@@ -54,7 +54,7 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
   ;(await xml('word/_rels/document.xml.rels'))?.querySelectorAll('Relationship').forEach(r => rels.set(r.getAttribute('Id')!, r.getAttribute('Target')!))
 
   const body = docXml.getElementsByTagNameNS(W, 'body')[0]!
-  type Item = { k: 'p'; style: string; text: string; html: string; list: boolean } | { k: 'img'; id: string } | { k: 'tbl'; rows: string[][] }
+  type Item = { k: 'p'; style: string; text: string; html: string; list: boolean; bold: boolean } | { k: 'img'; id: string } | { k: 'tbl'; rows: string[][] }
   const items: Item[] = []
 
   const paraText = (p: Element) => {
@@ -76,7 +76,8 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
       if (last && last.b === b) last.t += t; else parts.push({ t, b })
     }
     html = parts.map(x => (x.b && x.t.trim() ? `<strong>${esc(x.t)}</strong>` : esc(x.t))).join('').replace(/\n/g, '<br>').trim()
-    return { text, html }
+    const filled = parts.filter(x => x.t.trim())
+    return { text, html, bold: filled.length > 0 && filled.every(x => x.b) }
   }
 
   for (const el of Array.from(body.children)) {
@@ -91,13 +92,13 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
           items.push({ k: 'img', id: await saveImage(blob, 'Immagine dal Word') })
         }
       }
-      const { text, html } = paraText(el)
+      const { text, html, bold } = paraText(el)
       if (!text.trim()) continue
       const pPr = kid(el, 'pPr')
       const sid = wattr(kid(pPr, 'pStyle'), 'val') ?? 'Normal'
       const sty = styles.get(sid) ?? { name: sid, numbered: false }
       const list = !!kid(pPr, 'numPr') || sty.numbered || /list|elenco/i.test(sty.name)
-      items.push({ k: 'p', style: sty.name, text, html, list })
+      items.push({ k: 'p', style: sty.name, text, html, list, bold })
     } else if (el.localName === 'tbl') {
       const rows: string[][] = []
       for (const tr of kids(el, W, 'tr')) {
@@ -110,6 +111,44 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
         rows.push(cells)
       }
       items.push({ k: 'tbl', rows })
+    }
+  }
+
+  // Word scritti senza stili di titolo: si riconoscono i titoli dalla forma
+  // («Capitolo 2», «2. Ambiente», «2.1 Energia», righe brevi tutte in grassetto o in maiuscolo)
+  {
+    const styled = [...new Set(items.flatMap(i => (i.k === 'p' && headingLevel(i.style) ? [headingLevel(i.style)!] : [])))].sort()
+    if (styled.length < 2) {
+      const short = (t: string) => t.length >= 3 && t.length <= 90 && !/[.;,:]$/.test(t)
+      const numbered2 = items.some(i => i.k === 'p' && short(i.text.trim()) && /^\d{1,2}\.\d{1,2}\.?\s+\S/.test(i.text.trim()))
+      const base = styled.length === 1 ? styled[0]! : 1
+      const found: { it: Extract<Item, { k: 'p' }>; lv: number; t: string }[] = []
+      for (const it of items) {
+        if (it.k !== 'p' || headingLevel(it.style) !== null || it.list) continue
+        const t = it.text.trim()
+        if (!short(t)) continue
+        const caps = t === t.toUpperCase() && /[A-ZÀ-Ý]{3}/.test(t)
+        let lv = 0
+        if (/^\d{1,2}\.\d{1,2}\.\d{1,2}\.?\s+\S/.test(t)) lv = 3
+        else if (/^\d{1,2}\.\d{1,2}\.?\s+\S/.test(t)) lv = 2
+        else if (/^(capitolo|parte)\s+\S/i.test(t) || (/^\d{1,2}[.)]?\s+\S/.test(t) && (it.bold || caps)) || (caps && it.bold)) lv = 1
+        else if (it.bold) lv = numbered2 ? 3 : 2
+        if (lv) found.push({ it, lv, t })
+      }
+      // prima del primo capitolo c'è la copertina: la prima riga in grassetto è il titolo
+      const firstChap = found.findIndex(f => f.lv === 1)
+      const hasTitle = items.some(i => i.k === 'p' && headingLevel(i.style) === 0)
+      found.forEach((f, k) => {
+        if (styled.length === 0 && firstChap > 0 && k < firstChap) {
+          if (!hasTitle && k === 0 && items.indexOf(f.it) === items.findIndex(i => i.k === 'p')) f.it.style = 'title'
+          return
+        }
+        let lv = f.lv
+        if (styled.length === 1) { if (lv === 1) return; lv = base + lv - 1 }
+        f.it.style = `heading ${lv}`
+        const t1 = f.t.replace(/^(?:(?:capitolo|parte)\s+\S+\s*[–—:.-]?|\d{1,2}(?:\.\d{1,2}){0,2}[.)]?)\s+/i, '') || f.t
+        f.it.text = t1 === t1.toUpperCase() && /[A-ZÀ-Ý]{3}/.test(t1) ? t1.charAt(0) + t1.slice(1).toLowerCase() : t1
+      })
     }
   }
 
@@ -149,6 +188,12 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
         caption = caption.replace(/\s*\((timeline|grafico)\)\s*$/i, '')
         if (['grafico', 'schema grafico'].includes(caption.toLowerCase())) caption = ''
       }
+      else if (rows.length >= 2 && Math.max(...rows.map(r => r.length)) <= 3) {
+        // tabella senza riga di didascalia: se è una serie di numeri o di anni la mostro come tale
+        const headLike = !/\d/.test(rows[0]![0] ?? '') && rows.slice(1).every(r => /\d/.test(r[0] ?? ''))
+        const v = guessView(rows.slice(headLike ? 1 : 0), '')
+        if (v === 'kpi' || v === 'timeline') { view = v; header = headLike }
+      }
       push({ id: nid(), type: 'table', view, header, caption, rows, icons: [] })
       report.tabelle++
       continue
@@ -162,12 +207,26 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
       if (!ch) { ch = { id: nid(), title: doc.cover.title || 'Capitolo', image: null, sections: [] }; doc.chapters.push(ch) }
       sec = newSec(txt); ch.sections.push(sec); report.sezioni++; continue
     }
-    if (kind === 'brochure' && lv !== null && lv === subLv && sec && !sec.blocks.length && !sec.kicker) { sec.kicker = sec.title; sec.title = txt; continue }
+    if (kind === 'brochure' && lv !== null && lv === subLv && sec && !sec.blocks.length && !sec.kicker) {
+      // solo se nella sezione non ci sono altri titoletti dello stesso livello (altrimenti sono voci: Analisi, Strategia…)
+      const i0 = items.indexOf(it)
+      let more = false
+      for (let j = i0 + 1; j < items.length; j++) {
+        const x = items[j]!
+        if (x.k !== 'p') continue
+        const l2 = headingLevel(x.style)
+        if (l2 !== null && l2 <= (secLv ?? 0)) break
+        if (l2 === subLv) { more = true; break }
+      }
+      if (!more) { sec.kicker = sec.title; sec.title = txt; continue }
+    }
     const ph = txt.match(/^\[?\s*(?:foto|immagine|image|img)\s*[:–-]\s*(.+?)\s*\]?$/i)
     if (ph && txt.length < 140) { push({ id: nid(), type: 'image', image: null, caption: '', ratio: 0.5625, hint: ph[1]! }); continue }
-    if (lv !== null || (/^[A-Z]{1,3}\d{1,3}\s+\S/.test(txt) && txt.length < 90 && !txt.endsWith('.'))) push({ id: nid(), type: 'h4', html: esc(txt) })
-    else if (/^citazione in evidenza\s*:/i.test(txt) || /quote|citazione/i.test(it.style)) push({ id: nid(), type: 'quote', html: esc(txt.replace(/^citazione in evidenza\s*:\s*/i, '')) })
+    const bullet = /^[•\-–—*·▪◦►✓]\s+/
+    if (lv !== null || (/^[A-Z]{1,3}\d{1,3}\s+\S/.test(txt) && txt.length < 90 && !txt.endsWith('.')) || (it.bold && !it.list && txt.length <= 90 && !/[.;,:]$/.test(txt) && !bullet.test(txt))) push({ id: nid(), type: 'h4', html: esc(txt) })
+    else if (/^citazione in evidenza\s*:/i.test(txt) || /quote|citazione/i.test(it.style) || /^[«"“][^«»"“”]{15,400}[»"”](\s*[–—-]\s*.{2,60})?$/.test(txt)) push({ id: nid(), type: 'quote', html: esc(txt.replace(/^citazione in evidenza\s*:\s*/i, '')) })
     else if (it.list) push({ id: nid(), type: 'li', html: it.html })
+    else if (bullet.test(txt)) push({ id: nid(), type: 'li', html: it.html.replace(/^(<strong>)?[•\-–—*·▪◦►✓]\s+/, '$1') })
     else push({ id: nid(), type: 'p', html: it.html })
     report.paragrafi++
   }
@@ -188,32 +247,18 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
         if (b.type !== 'table') continue
         // nella brochure le tabelle sono elenchi di voci (titolo · testo) o di numeri, senza riga d'intestazione
         const rows = b.rows.filter(r => r.some(x => x.trim()))
-        const firstNum = rows.length >= 2 && rows.every(r => /\d/.test(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)
+        const firstNum = rows.length >= 2 && rows.every(r => numLike(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)
         const headLike = rows.length > 2 && !/\d/.test(rows[0]![0] ?? '') && firstNum === false && rows[0]!.every(x => x.length <= 24) && rows.slice(1).some(r => r.some(x => x.length > 40))
-        if (b.view === 'tabella') { b.header = headLike; if (rows.slice(headLike ? 1 : 0).every(r => /\d/.test(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)) b.view = 'kpi' }
-      }
-      s.layout.page = guessPage(s)
-      if (s.layout.page === 'prodotto') {
-        // l'immagine del Word va nel cerchio a destra
-        const i = s.blocks.findIndex(b => b.type === 'image')
-        const b = s.blocks[i]
-        if (b && b.type === 'image') { s.layout.band = b.image; s.layout.circleFit = 'sopra'; s.blocks.splice(i, 1) }
+        if (b.view === 'tabella') { b.header = headLike; if (rows.slice(headLike ? 1 : 0).every(r => numLike(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)) b.view = 'kpi' }
       }
     }
+    for (const c of doc.chapters) c.sections = c.sections.filter(x => x.title || x.blocks.length)
+    compose(doc)
     return { doc, report }
   }
 
-  for (const c of doc.chapters) for (const s of c.sections) {
-    const nText = s.blocks.filter(b => b.type === 'p' || b.type === 'li').length
-    const wide = s.blocks.some(b => b.type === 'table' && b.view === 'tabella' && b.rows.length && Math.max(...b.rows.map(r => r.length)) >= 4)
-    if (wide && nText <= 3) s.layout.cols = 'w'
-    if (/highlight|numeri chiave|in sintesi/i.test(s.title) && s.blocks.some(b => b.type === 'table') && nText <= 1) {
-      s.layout.mode = 'highlights'
-      for (const b of s.blocks) if (b.type === 'table') b.view = 'kpi'
-    }
-    const chars = s.blocks.reduce((n, b) => n + ((b.type === 'p' || b.type === 'li') ? b.html.length : 0), 0)
-    if (s.layout.cols === 2 && chars < 1800 && !wide) s.layout.cols = 1
-  }
+  for (const c of doc.chapters) c.sections = c.sections.filter(x => x.title || x.blocks.length)
+  compose(doc)
   if (defaults?.cover) doc.cover.image = { asset: defaults.cover, cx: 0.5, cy: 0.5, zoom: 1 }
   if (defaults?.chapters?.length) doc.chapters.forEach((c, i) => { c.image = { asset: defaults.chapters![i % defaults.chapters!.length]!, cx: 0.5, cy: 0.5, zoom: 1 } })
   return { doc, report }

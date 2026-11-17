@@ -7,6 +7,8 @@ import RichText from './RichText'
 import TableEditor from './TableEditor'
 import { TEXT_TYPES, blockLabel, clone, locate, move, newBlock, newChapter, newSection, type Sel } from './store'
 import { nid } from '../api'
+import { compose, lookOf, setLook } from '../local/regista'
+import type { Look } from '../types'
 
 interface P {
   doc: Doc; sel: Sel; setSel: (s: Sel) => void; update: (fn: (d: Doc) => void, coalesce?: string) => void
@@ -115,17 +117,20 @@ function SectionPanel({ doc, update, canEdit, docId, setSel, ci, si }: P & { ci:
         setKicker={v => update(d => { d.chapters[ci]!.sections[si]!.kicker = v }, `kick-${s.id}`)} setL={setL} /> :
       <div className="insp__group">
         <h3>Impaginazione</h3>
-        <div className="oe-field"><span className="oe-label">Tipo di pagina</span>
-          <Segment label="Tipo di pagina" value={L.mode} onChange={v => canEdit && setL(l => { l.mode = v })}
-            options={[{ v: 'normal', l: 'Testo' }, { v: 'highlights', l: 'Numeri chiave (pagina viola)' }]} /></div>
-        {L.mode === 'highlights' ? (
-          <p className="hint">La pagina viola mostra in grande i numeri della prima tabella della sezione (colonne: valore · descrizione).</p>
-        ) : (
+        <LookPicker look={lookOf(s)} auto={L.auto !== false} canEdit={canEdit}
+          onPick={v => update(d => setLook(d.chapters[ci]!.sections[si]!, v, d.meta.format, true))}
+          onAuto={() => update(d => { d.chapters[ci]!.sections[si]!.layout.auto = true; compose(d) })} />
+        {lookOf(s) === 'dato' && (
           <>
-            <div className="oe-field"><span className="oe-label">Colonne del testo</span>
-              <Segment label="Colonne" value={L.cols} onChange={v => canEdit && setL(l => { l.cols = v })}
-                options={[{ v: 1, l: two[0]! }, { v: 2, l: two[1]! }, { v: 'w', l: 'Tutta larghezza' }]} />
-              <span className="hint">{L.cols === 1 ? 'Testo con colonna di margine a sinistra (per citazioni e illustrazioni).' : L.cols === 'w' ? 'Per sezioni fatte soprattutto di tabelle (indici GRI, allegati).' : 'Testo lungo su più colonne; tabelle e box restano a tutta larghezza.'}</span></div>
+            <label className="oe-field"><span className="oe-label">Numero in evidenza</span>
+              <input className="oe-input" disabled={!canEdit} value={L.hero?.n ?? ''} onChange={e => setL(l => { l.hero = { n: e.target.value, l: l.hero?.l ?? '' } })} /></label>
+            <label className="oe-field"><span className="oe-label">Frase accanto al numero</span>
+              <textarea className="oe-textarea" disabled={!canEdit} value={L.hero?.l ?? ''} onChange={e => setL(l => { l.hero = { n: l.hero?.n ?? '', l: e.target.value } })} />
+              <span className="hint">Presi dal testo della sezione. Il numero resta anche nel testo: qui è solo messo in evidenza.</span></label>
+          </>
+        )}
+        {L.mode === 'highlights' ? null : (
+          <>
             <label className="oe-check"><input type="checkbox" disabled={!canEdit} checked={!!L.newpage} onChange={e => setL(l => { l.newpage = e.target.checked })} /> Inizia su una pagina nuova</label>
             <ImageField label="Foto in fondo alla pagina (facoltativa)" optional docId={docId} canEdit={canEdit} use="banda" aspect={(D.PW + 6) / D.BAND}
               value={L.band} onChange={v => setL(l => { l.band = v })} />
@@ -165,6 +170,33 @@ function SectionPanel({ doc, update, canEdit, docId, setSel, ci, si }: P & { ci:
   )
 }
 
+/* ---------------------------------------------------------------- bilancio: modalità della sezione */
+const LOOKS: { v: Look; l: string; help: string }[] = [
+  { v: 'colonne', l: 'Testo a colonne', help: 'Per i testi lunghi. Tabelle e box restano a tutta larghezza.' },
+  { v: 'margine', l: 'Colonna con margine', help: 'Una colonna con il margine a sinistra, per citazioni brevi e illustrazioni: più aria, adatta ai testi brevi.' },
+  { v: 'dato', l: 'Dato in apertura', help: 'Un numero del testo in grande sotto il titolo, con la sua frase.' },
+  { v: 'card', l: 'Card', help: 'Le voci brevi (sottotitolo + testo, o punti elenco) diventano riquadri grigi affiancati.' },
+  { v: 'citazione', l: 'Citazione grande', help: 'Le citazioni della sezione diventano grandi, a tutta larghezza.' },
+  { v: 'numeri', l: 'Numeri chiave', help: 'Pagina viola con i numeri della tabella in grande (colonne: valore · descrizione) e il testo breve della sezione.' },
+  { v: 'largo', l: 'Tutta larghezza', help: 'Per le sezioni fatte soprattutto di tabelle (indici GRI, allegati).' },
+]
+function LookPicker({ look, auto, canEdit, onPick, onAuto }: { look: Look; auto: boolean; canEdit: boolean; onPick: (v: Look) => void; onAuto: () => void }) {
+  return (
+    <div className="oe-field"><span className="oe-label">Modalità</span>
+      <div className="pagetypes" role="radiogroup" aria-label="Modalità della sezione">
+        {LOOKS.map(x => <button key={x.v} role="radio" aria-checked={look === x.v} disabled={!canEdit} className={`oe-btn oe-btn--sm ${look === x.v ? 'oe-btn--primary' : 'oe-btn--secondary'}`} onClick={() => onPick(x.v)}>{x.l}</button>)}
+      </div>
+      <span className="hint">{LOOKS.find(x => x.v === look)?.help}</span>
+      <AutoNote auto={auto} canEdit={canEdit} onAuto={onAuto} />
+    </div>
+  )
+}
+function AutoNote({ auto, canEdit, onAuto }: { auto: boolean; canEdit: boolean; onAuto: () => void }) {
+  return auto
+    ? <span className="hint">Scelta dal tool in base al contenuto e al ritmo del documento. Se la cambi, resta come l'hai scelta tu.</span>
+    : <span className="hint">Scelta da te: «Un'altra impaginazione» non la cambia. {canEdit && <button className="oe-btn oe-btn--ghost oe-btn--sm" style={{ padding: 0 }} onClick={onAuto}>Lascia scegliere al tool</button>}</span>
+}
+
 /* ---------------------------------------------------------------- brochure: tipo di pagina */
 const PAGES: { v: PageType; l: string; help: string }[] = [
   { v: 'testo', l: 'Testo', help: 'Titolo e voci in griglia: ogni sottotitolo (in maiuscolo bluette) con il suo testo. Senza sottotitoli il testo va su una o due colonne.' },
@@ -188,9 +220,10 @@ function BrochureLayout({ L, kicker, chapter, canEdit, docId, setKicker, setL }:
         <span className="hint">Il riquadro lime con la freccia sopra il titolo. Se è vuota uso il titolo del capitolo.</span></label>
       <div className="oe-field"><span className="oe-label">Tipo di pagina</span>
         <div className="pagetypes" role="radiogroup" aria-label="Tipo di pagina">
-          {PAGES.map(x => <button key={x.v} role="radio" aria-checked={page === x.v} disabled={!canEdit} className={`oe-btn oe-btn--sm ${page === x.v ? 'oe-btn--primary' : 'oe-btn--secondary'}`} onClick={() => setL(l => { l.page = x.v })}>{x.l}</button>)}
+          {PAGES.map(x => <button key={x.v} role="radio" aria-checked={page === x.v} disabled={!canEdit} className={`oe-btn oe-btn--sm ${page === x.v ? 'oe-btn--primary' : 'oe-btn--secondary'}`} onClick={() => setL(l => { l.page = x.v; l.auto = false })}>{x.l}</button>)}
         </div>
-        <span className="hint">{P.help}</span></div>
+        <span className="hint">{P.help}</span>
+        <AutoNote auto={L.auto !== false} canEdit={canEdit} onAuto={() => setL(l => { l.auto = true })} /></div>
       {(page === 'colore' || page === 'prodotto') && (
         <ImageField label={page === 'colore' ? 'Foto della pagina (facoltativa)' : 'Foto o mockup nel cerchio'} optional docId={docId} canEdit={canEdit} use={page === 'colore' ? 'pagina' : 'cerchio'}
           aspect={page === 'colore' ? 309 / 183 : 1} value={L.band} onChange={v => setL(l => { l.band = v })} />

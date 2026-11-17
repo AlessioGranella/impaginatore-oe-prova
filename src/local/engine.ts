@@ -40,7 +40,7 @@ const TAGS = /(<\/?strong>|<br\s*\/?>)/
 export function inline(s: string): string {
   return (s || '').split(TAGS).map(p => TAGS.test(p) ? (p.startsWith('<br') ? '<br>' : p) : esc(unesc(p))).join('')
 }
-const plain = (s: string) => unesc((s || '').replace(/<\/?strong>|<br>/g, ' ')).trim()
+export const plain = (s: string) => unesc((s || '').replace(/<\/?strong>|<br>/g, ' ')).trim()
 const pad = (n: number) => String(n).padStart(2, '0')
 const attr = (s: string) => esc(s).replace(/"/g, '&quot;')
 
@@ -55,6 +55,34 @@ export function parseNum(s: string): number | null {
 }
 const isnum = (s: string) => /^[\s\d.,%€–—\-+()]+$/.test(s || '') && /\d|^[–—-]$/.test((s || '').trim())
 
+/* ------------------------------------------------------------------ voci brevi (card) */
+const tlen = (h: string) => plain(h).length
+/** Gruppi di voci brevi in fila da mostrare come card: sottotitolo + 1-2 paragrafi, oppure punti elenco brevi.
+    Restituisce il primo gruppo adatto (inizio, fine esclusa) o null. */
+export function cardRun(blocks: Block[]): { start: number; end: number; kind: 'h4' | 'li'; n: number } | null {
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i]!
+    if (b.type === 'h4') {
+      let j = i, n = 0, ok = true
+      while (j < blocks.length && blocks[j]!.type === 'h4') {
+        let k = j + 1, chars = tlen((blocks[j] as { html: string }).html)
+        while (k < blocks.length && (blocks[k]!.type === 'p' || blocks[k]!.type === 'li') && k - j <= 3) { chars += tlen((blocks[k] as { html: string }).html); k++ }
+        if (k === j + 1 || k - j > 3 || chars > 460) { ok = n >= 3; break }
+        n++; j = k
+        if (n === 8) break
+      }
+      if (ok && n >= 3) return { start: i, end: j, kind: 'h4', n }
+    }
+    if (b.type === 'li') {
+      let j = i
+      while (j < blocks.length && blocks[j]!.type === 'li' && tlen((blocks[j] as { html: string }).html) <= 260 && j - i < 8) j++
+      if (j - i >= 3 && (j === blocks.length || blocks[j]!.type !== 'li')) return { start: i, end: j, kind: 'li', n: j - i }
+      while (i + 1 < blocks.length && blocks[i + 1]!.type === 'li') i++
+    }
+  }
+  return null
+}
+
 /* ------------------------------------------------------------------ renderer */
 export type ImgMap = Map<string, string>
 
@@ -62,6 +90,8 @@ class Renderer {
   F: F
   contentW: number
   B: BrandDef
+  /** sezione in modalità «citazione»: le citazioni diventano grandi, a tutta larghezza */
+  bigQuote = false
   constructor(public doc: Doc, public mode: 'digital' | 'print', public imgs: ImgMap, public base: string) {
     this.F = FORMATS[doc.meta.format as 'a4v' | 'a4o'] ?? FORMATS.a4v
     this.B = brandOf(doc.meta.brand)
@@ -159,7 +189,7 @@ class Renderer {
       case 'p': return `<p${bid}>${inline(b.html)}</p>`
       case 'h4': return `<h4${bid}>${inline(b.html)}</h4>`
       case 'li': return `<p class="li"${bid}>${inline(b.html)}</p>`
-      case 'quote': return `<blockquote class="${cols === 1 && this.F.C1COLS === 1 ? 'side' : ''}"${bid}>${inline(b.html)}</blockquote>`
+      case 'quote': return `<blockquote class="${this.bigQuote ? 'big' : cols === 1 && this.F.C1COLS === 1 ? 'side' : ''}"${bid}>${inline(b.html)}</blockquote>`
       case 'note': return `<p class="note"${bid}>${inline(b.html)}</p>`
       case 'sign': return `<p class="sign"${bid}>${inline(b.html)}</p>`
       case 'table': return this.view(b).replace(/^<div class="(box|tbox)"/, `<div class="$1"${bid}`)
@@ -172,9 +202,21 @@ class Renderer {
     }
   }
 
+  /** voci brevi come card grigie, a righe (così una riga intera passa alla pagina dopo, mai tagliata) */
+  cards(blocks: Block[], kind: 'h4' | 'li'): string {
+    const groups: Block[][] = []
+    for (const b of blocks) { if (kind === 'li' || b.type === 'h4') groups.push([b]); else groups[groups.length - 1]!.push(b) }
+    const n = groups.length, longest = Math.max(...groups.map(g => g.reduce((c, b) => c + tlen((b as { html: string }).html), 0)))
+    const per = this.F.PW > 250 ? (n === 4 || n === 8 ? 4 : 3) : (n % 3 === 0 && longest <= 260 ? 3 : 2)
+    const card = (g: Block[], j: number) => `<div class="card">${kind === 'li' ? `<div class="enum">${j + 1}</div>` : ''}${g.map(b => b.type === 'h4' ? `<h4 data-bid="${attr(b.id)}">${inline(b.html)}</h4>` : `<p data-bid="${attr(b.id)}">${inline((b as { html: string }).html)}</p>`).join('')}</div>`
+    const rows: string[] = []
+    for (let i = 0; i < n; i += per) rows.push(`<div class="cardrow"><div class="cards c${per}">${groups.slice(i, i + per).map((g, k) => card(g, i + k)).join('')}${Array(Math.max(0, per - groups.slice(i, i + per).length)).fill('<div></div>').join('')}</div></div>`)
+    return rows.join('')
+  }
+
   flow(body: string[], ncols: number) {
     if (ncols <= 1) return body.join('')
-    const span = /^<(blockquote|figure|div class="(box|tbox)")/
+    const span = /^<(blockquote|figure|div class="(box|tbox|cardrow))/
     const out: string[] = []
     let run: string[] = []
     for (const h of body) {
@@ -189,7 +231,8 @@ class Renderer {
     if (L.mode === 'highlights') {
       const tab = s.blocks.find(b => b.type === 'table') as TableBlock | undefined
       const items = tab ? this.rowsOf(tab).map(r => `<div class="hk"><div class="hn">${inline(r[0] ?? '')}</div><div class="hl">${inline(r[1] ?? '')}</div></div>`).join('') : ''
-      return `<div class="hl-page" id="${sid}" data-bid="${sid}">${s.title ? `<div class="sechead"><h3>${esc(s.title)}</h3></div>` : ''}<div class="hgrid"${tab ? ` data-bid="${attr(tab.id)}"` : ''}>${items}</div></div>`
+      const txt = s.blocks.filter(b => b.type === 'p' || b.type === 'li' || b.type === 'note').map(b => this.block(b, 1)).join('')
+      return `<div class="hl-page" id="${sid}" data-bid="${sid}">${s.title ? `<div class="sechead"><h3>${esc(s.title)}</h3></div>` : ''}${txt ? `<div class="hlead">${txt}</div>` : ''}<div class="hgrid"${tab ? ` data-bid="${attr(tab.id)}"` : ''}>${items}</div></div>`
     }
     const cols = L.cols ?? 2
     const ccls = cols === 1 ? 'c1' : cols === 'w' ? 'cw' : 'c2'
@@ -200,7 +243,11 @@ class Renderer {
       + `<div class="band" style="background-image:linear-gradient(to top, rgba(${this.B.vars['--shade']},.55), rgba(${this.B.vars['--shade']},0) 30%), url(${bi})"><div class="bfoot"><img src="${logo('logo-mark-white.svg')}" alt=""><span class="bpn"></span></div></div>`
     const body: string[] = []
     let lead = '', firstText = true
-    for (const b of s.blocks) {
+    this.bigQuote = L.look === 'citazione'
+    const run = L.look === 'card' ? cardRun(s.blocks) : null
+    for (let i = 0; i < s.blocks.length; i++) {
+      const b = s.blocks[i]!
+      if (run && i === run.start) { body.push(this.cards(s.blocks.slice(run.start, run.end), run.kind)); i = run.end - 1; firstText = false; continue }
       if (b.type === 'p' && firstText && cols !== 'w' && !body.length && b.lead !== false) {
         lead = `<p class="lead" data-bid="${attr(b.id)}">${inline(b.html)}</p>`
         firstText = false
@@ -209,11 +256,15 @@ class Renderer {
       if (b.type === 'p' || b.type === 'h4') firstText = false
       body.push(this.block(b, cols))
     }
+    this.bigQuote = false
+    // dato in apertura: il numero in grande, l'unità di misura (dipendenti, tCO2e, ore…) più piccola sotto
+    const hm = L.hero?.n ? L.hero.n.trim().match(/^([€$]?\s?[\d.,]+\s?(?:%|€|\+)?)\s*(.*)$/) : null
+    const hero = L.look === 'dato' && L.hero?.n ? `<div class="dato"><div class="dn">${esc(hm ? hm[1]!.trim() : L.hero.n)}${hm?.[2] ? `<span class="du">${esc(hm[2])}</span>` : ''}</div><div class="dl">${esc(L.hero.l)}</div></div>` : ''
     const oi = L.ornament && cols === 1 ? this.whole(L.ornament, F.SIDEW) : null
     const orn = oi ? `<img class="orn" src="${oi}" alt="">` : ''
     const tight = Math.min(Number(L.tight || 0), 3)
     const cls = `sec ${ccls}${band ? ' hasband' : ''}${tight ? ` tight t${tight}` : ''}${L.newpage && !first ? ' newpage' : ''}`
-    return `<section class="${cls}" id="${sid}" data-bid="${sid}">${band}<div class="head">${band ? `<div class="chapmark">${esc(chapname)}</div>` : ''}<div class="sechead${orn ? ' has-orn' : ''}">${orn}${s.title ? `<h3>${esc(s.title)}</h3>` : ''}</div>${lead}</div><div class="flow">${this.flow(body, ncols)}</div></section>`
+    return `<section class="${cls}" id="${sid}" data-bid="${sid}">${band}<div class="head">${band ? `<div class="chapmark">${esc(chapname)}</div>` : ''}<div class="sechead${orn ? ' has-orn' : ''}">${orn}${s.title ? `<h3>${esc(s.title)}</h3>` : ''}</div>${hero}${lead}</div><div class="flow">${this.flow(body, ncols)}</div></section>`
   }
 
   html(): string {

@@ -140,7 +140,7 @@ class Brochure {
     const d = this.doc
     if (d.toc?.show === false || !d.chapters.length) return
     const cols = d.chapters.map(ch => `<div class="tcol"><p class="tg">${esc(ch.title)}</p>`
-      + ch.sections.map(s => `<a class="te" href="#${attr(s.id)}"><span class="tn">${String(this.pageOf.get(s.id) ?? 0).padStart(2, '0')}.</span><span><span class="tk">${esc(s.kicker || '')}</span>${esc(s.title)}</span></a>`).join('') + '</div>').join('')
+      + ch.sections.filter(s => !s.cont).map(s => `<a class="te" href="#${attr(s.id)}"><span class="tn">${String(this.pageOf.get(s.id) ?? 0).padStart(2, '0')}.</span><span><span class="tk">${esc(s.kicker || '')}</span>${esc(s.title)}</span></a>`).join('') + '</div>').join('')
     this.page({ cls: 'btoc', bid: 'toc', bgCls: 'bg-grey', body: `<h2 class="h2">${esc(d.toc?.title || 'Indice')}</h2><div class="tcols">${cols}</div>` })
   }
 
@@ -158,7 +158,9 @@ class Brochure {
   text(b: Block): string {
     const bid = ` data-bid="${attr(b.id)}"`
     if (b.type === 'li') return `<p class="li"${bid}>${inline(b.html)}</p>`
-    if (b.type === 'p' || b.type === 'h4' || b.type === 'note' || b.type === 'sign' || b.type === 'quote') return `<p${bid}>${inline(b.html)}</p>`
+    if (b.type === 'h4') return `<p class="ih"${bid}>${inline(b.html)}</p>`
+    if (b.type === 'quote') return `<p class="qt"${bid}>${inline(b.html)}</p>`
+    if (b.type === 'p' || b.type === 'note' || b.type === 'sign') return `<p${bid}>${inline(b.html)}</p>`
     return ''
   }
 

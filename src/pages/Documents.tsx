@@ -100,7 +100,7 @@ export default function Documents() {
 
 const LOGO = (b: Brand) => `${import.meta.env.BASE_URL}render/logos/${BRANDS[b].dir}logo-white.svg`
 const KINDS: { v: Kind; l: string; d: string; f: string }[] = [
-  { v: 'bilancio', l: 'Bilancio di sostenibilità', d: 'Report lungo con copertina, sommario, aperture dei capitoli con foto, testo su due colonne e box grafici.', f: 'A4 verticale o orizzontale' },
+  { v: 'bilancio', l: 'Bilancio di sostenibilità', d: 'Report lungo: copertina, sommario e aperture dei capitoli con foto sono fissi; le pagine interne le impagina il tool alternando le modalità in base al contenuto.', f: 'A4 verticale o orizzontale' },
   { v: 'brochure', l: 'Brochure', d: 'Sul modello delle brochure OpenEconomics, Externalytics e Sonar: una pagina per ogni sezione, con pagine a card, numeri, prodotto, citazione.', f: 'Orizzontale 303 × 177 mm' },
 ]
 const STEPS = ['Tipo di documento', 'Brand', 'Word e foto']

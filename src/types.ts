@@ -23,8 +23,20 @@ export interface Layout {
   tight: number; ornament: string | null; newpage?: boolean
   /** solo brochure */
   page?: PageType; circle?: 'magenta' | 'verde' | 'lime' | 'bluette'; circleFit?: 'ritaglia' | 'sopra'
+  /** solo bilancio: modalità scelta dal regista (o a mano); cols/mode ne derivano */
+  look?: Look
+  /** false = scelta a mano: il regista non la cambia */
+  auto?: boolean
+  /** bilancio, modalità «dato»: numero in evidenza preso dal testo della sezione */
+  hero?: { n: string; l: string } | null
+  /** bilancio: posto buono per una foto in fondo (deciso dal regista per il ritmo) */
+  bandSlot?: boolean
 }
-export interface Section { id: string; title: string; kicker?: string; layout: Layout; blocks: Block[] }
+/** Modalità di impaginazione delle sezioni del bilancio. */
+export type Look = 'colonne' | 'margine' | 'largo' | 'numeri' | 'dato' | 'card' | 'citazione'
+export interface Section { id: string; title: string; kicker?: string; layout: Layout; blocks: Block[]
+  /** brochure: pagina che continua la sezione precedente (non va nell'indice) */
+  cont?: boolean }
 export interface Chapter { id: string; title: string; image: ImageRef | null; sections: Section[] }
 export interface Doc {
   meta: { title: string; format: Fmt; kind?: Kind; brand?: Brand }

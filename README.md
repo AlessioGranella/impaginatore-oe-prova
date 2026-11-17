@@ -97,3 +97,22 @@ npm run build    # cartella dist/
 - Pagina esclusa dai motori di ricerca (`noindex` + `robots.txt`).
 
 Licenza AGPL-3.0, la stessa di Vivliostyle che il tool incorpora. Logo, font e icone sono del design system OpenEconomics.
+
+## Il regista: impaginazione delle pagine interne
+
+Il tool non chiede più un Word simile al modello. Pochi punti fissi danno la riconoscibilità:
+copertina e aperture con foto, sommario/indice, tipografia, colori e marchio del brand, numeri di pagina.
+Il resto lo decide `src/local/regista.ts` in base al contenuto, seguendo regole di ritmo:
+
+- **Bilancio**: ogni sezione riceve una modalità (testo a colonne, colonna con margine, dato in apertura,
+  card, citazione grande, numeri chiave, tutta larghezza). Mai la stessa tre volte di fila; dopo circa due
+  pagine fitte arriva una pagina che respira; le foto d'ambiente vanno in posti distanziati. Dopo la prima
+  anteprima le sezioni che lasciano pagine quasi vuote si compattano da sole.
+- **Brochure**: ogni sezione diventa una o più pagine. Il testo che non entra va nella pagina dopo, mai
+  tagliato (stima in fase di import, poi misura nell'anteprima e divisione automatica). Fondi alternati
+  (bianco, puntini, colore), card, griglie, numeri, citazioni, pagina prodotto per «sottotitolo + testo + 2-4 punti».
+- **Import tollerante**: titoli riconosciuti anche senza stili (numerazione 1. / 1.1 / 1.1.1, righe brevi
+  in grassetto o in maiuscolo), elenchi con trattini, citazioni tra virgolette, tabelle di numeri o anni.
+- «Un'altra impaginazione» propone una variante con lo stesso contenuto; le scelte fatte a mano
+  nell'Inspector restano («Lascia scegliere al tool» le riconsegna al regista).
+- Nessun asset grafico si deforma: marchi, icone e loghi a misura fissa restano in proporzione.

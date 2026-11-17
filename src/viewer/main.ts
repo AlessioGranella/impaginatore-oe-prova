@@ -267,7 +267,8 @@ function overflowWarnings(sections: SectionInfo[]): Warn[] {
     const box = i >= 0 ? ps[i]!.querySelector<HTMLElement>(`.pg[data-bid="${CSS.escape(s.id)}"] .pgc`) : null
     if (!box) continue
     // il riquadro della pagina taglia ciò che non ci sta: quanto testo resta fuori, in proporzione
-    const extra = box.scrollHeight - box.clientHeight
+    // ciò che esce in basso (testo) o a destra (numeri in fila), in proporzione
+    const extra = Math.max(box.scrollHeight - box.clientHeight, (box.scrollWidth - box.clientWidth) * box.clientHeight / box.clientWidth)
     if (extra > 2) { box.classList.add('imp-over'); out.push({ section: s.id, title: s.title, page: i + 1, fill: 1 + extra / box.clientHeight, tight: s.tight, kind: 'lunga' }) }
   }
   return out

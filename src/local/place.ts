@@ -125,7 +125,10 @@ export function placePhotos(doc: Doc, photos: PhotoIn[], onlyEmpty = true): Plac
     take(p, sectionLabel(x), p.info.kind === 'soggetto' ? 'Foto con soggetto: nella pagina il testo sta a sinistra e il soggetto a destra' : 'Foto d\'ambiente come fondo della pagina', lowRes(p, x.s.layout.page === 'prodotto' ? 154 : PWB, x.s.layout.page === 'prodotto' ? 154 : PHB, 1))
   }
   // foto d'ambiente in fondo alle sezioni, distribuite in modo regolare (sezioni con più testo prima)
-  const elig = sections.filter(x => bandOk(x.s))
+  // bilancio: prima i posti scelti dal regista per il ritmo (distanziati, mai subito dopo un'apertura)
+  const elig0 = sections.filter(x => bandOk(x.s) && !(x.s.layout.look === 'card'))
+  const slots = elig0.filter(x => x.s.layout.bandSlot)
+  const elig = !isBr && slots.length && slots.length >= amb.length ? slots : elig0
   if (amb.length && elig.length) {
     const n = Math.min(amb.length, elig.length)
     const step = elig.length / n

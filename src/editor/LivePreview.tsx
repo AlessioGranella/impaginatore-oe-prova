@@ -25,7 +25,7 @@ const LivePreview = forwardRef<LivePreviewHandle, {
   selId: string | null; onPick: (id: string) => void; pins: Pin[]; marks: Mark[]; onPin: (threadId: string) => void
   onTextSel: (s: (TextSel & { top: number; left: number }) | null) => void
   busy: boolean; info: string; stale: boolean; warnings: Warn[]; onFit: () => void; fitting: boolean; onGoSection: (id: string) => void; onRefresh: () => void
-  brochure: boolean; overlay?: React.ReactNode
+  brochure: boolean; overlay?: React.ReactNode; onRecompose?: () => void
 }>(function LivePreview(p, ref) {
   const frames = [useRef<HTMLIFrameElement>(null), useRef<HTMLIFrameElement>(null)]
   const [front, setFront] = useState(0)
@@ -124,8 +124,9 @@ const LivePreview = forwardRef<LivePreviewHandle, {
   return (
     <>
       <div className="pv__bar">
-        {p.busy ? (<><span className="pv__info">{p.fitting ? 'Compatto le sezioni…' : 'Impagino…'}</span><div className="progress progress--quiet"><i /></div></>)
+        {p.busy ? (<><span className="pv__info">{p.fitting ? (p.brochure ? 'Divido le pagine troppo piene…' : 'Compatto le sezioni…') : 'Impagino…'}</span><div className="progress progress--quiet"><i /></div></>)
           : <span className="pv__info">{p.info}</span>}
+        {!p.busy && p.onRecompose && <button className="oe-btn oe-btn--ghost oe-btn--sm" onClick={p.onRecompose} title="Stesso contenuto, scelte di impaginazione diverse. Le pagine impostate a mano restano come sono."><Icon name="shuffle" />Un'altra impaginazione</button>}
         {!p.busy && p.stale && <button className="oe-btn oe-btn--ghost oe-btn--sm" onClick={p.onRefresh}><Icon name="refresh" />Aggiorna ora</button>}
         {p.warnings.length > 0 && !p.busy && (
           <button className="oe-badge oe-badge--warning" style={{ border: 0, cursor: 'pointer' }} onClick={() => setShowWarns(v => !v)} aria-expanded={showWarns}>
@@ -136,7 +137,7 @@ const LivePreview = forwardRef<LivePreviewHandle, {
         {showWarns && p.warnings.length > 0 && (
           <div className="warns">
             <p className="hint">{long
-              ? 'Nella brochure ogni sezione è una pagina. In queste il contenuto non entra (bordo tratteggiato nell\'anteprima): accorcia il testo, togli una voce o scegli un altro tipo di pagina. Puoi anche chiedere all\'AI di accorciarlo.'
+              ? 'In queste pagine il contenuto non entra (bordo tratteggiato nell\'anteprima). Posso dividerle in due pagine, senza tagliare il testo; oppure accorcia il testo o scegli un altro tipo di pagina.'
               : 'Queste sezioni finiscono con poche righe da sole su una pagina. Puoi compattarle (meno spazio tra paragrafi) o accorciare il testo.'}</p>
             {p.warnings.map(w => (
               <div className="warn" key={w.section}>
@@ -144,7 +145,7 @@ const LivePreview = forwardRef<LivePreviewHandle, {
                 <button className="oe-btn oe-btn--ghost oe-btn--sm" onClick={() => p.onGoSection(w.section)}>Vai</button>
               </div>
             ))}
-            {!p.brochure && <div><button className="oe-btn oe-btn--secondary oe-btn--sm" disabled={p.busy} onClick={p.onFit}><Icon name="compress" />Compatta in automatico</button></div>}
+            <div><button className="oe-btn oe-btn--secondary oe-btn--sm" disabled={p.busy} onClick={p.onFit}><Icon name="compress" />{p.brochure ? 'Dividi le pagine troppo piene' : 'Compatta in automatico'}</button></div>
           </div>
         )}
       </div>

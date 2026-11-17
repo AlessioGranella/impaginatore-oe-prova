@@ -16,6 +16,7 @@ import { blockExcerpt, blockLabel, clone, locate, selFromId, type Sel } from './
 import { Versions } from './Versions'
 import { PhotoDrop, PhotoReport } from './PhotoReport'
 import type { Placement } from '../local/place'
+import { compose, splitOverflowing } from '../local/regista'
 
 type Tab = 'modifica' | 'ai' | 'commenti' | 'versioni'
 /** pausa dopo l'ultima modifica prima di reimpaginare (nell'iframe nascosto: chi scrive non vede niente muoversi) */
@@ -154,7 +155,53 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
     }
   }, [])
 
-  const autoFit = async () => {
+  /* ------------------------------------------------------------ regista */
+  // «Un'altra impaginazione»: stesso contenuto, scelte diverse (le sezioni impostate a mano restano come sono)
+  const seed = useRef(0)
+  const autoSplit = useRef(false)
+  const recompose = () => {
+    if (!draft) return
+    seed.current++
+    autoSplit.current = false
+    update(d => { compose(d, seed.current) })
+    toast('Nuova proposta di impaginazione. Se preferivi la precedente premi ⌘Z.')
+  }
+  // brochure: le pagine in cui il testo non entra si dividono in due (misurate nell'anteprima), mai tagliate
+  const fixLong = async (quiet = false) => {
+    if (!draft) return
+    setFitting(true); setBusy(true)
+    const work = clone(draft)
+    let split = 0
+    try {
+      for (let i = 0; i < 5; i++) {
+        const r = await preview.current!.render(work)
+        setWarnings(r.warnings)
+        setPvInfo(`Anteprima aggiornata · ${r.pages} pagine`)
+        const long = r.warnings.filter(w => w.kind === 'lunga').map(w => w.section)
+        if (!long.length) break
+        const n = splitOverflowing(work, long)
+        if (!n) break
+        split += n
+      }
+      if (split) {
+        const r = await preview.current!.render(work)
+        setWarnings(r.warnings)
+        setPvInfo(`Anteprima aggiornata · ${r.pages} pagine`)
+        update(d => { d.chapters = work.chapters })
+        setRenderedJson(JSON.stringify(work))
+        toast(`${split === 1 ? 'Una pagina era troppo piena: l\'ho divisa' : `${split} pagine erano troppo piene: le ho divise`}, senza tagliare il testo. Ricordati di salvare.`)
+      } else if (!quiet) toast('Non riesco a dividerla oltre: accorcia il testo o cambia tipo di pagina.')
+    } finally { setFitting(false); setBusy(false) }
+  }
+  useEffect(() => {
+    if (viewing || !draft || autoSplit.current || busy || !warnings.length) return
+    // dopo la prima anteprima: brochure → si dividono le pagine troppo piene; bilancio → si compattano le sezioni che lasciano pagine quasi vuote
+    autoSplit.current = true
+    if (draft.meta.kind === 'brochure') { if (warnings.some(w => w.kind === 'lunga')) fixLong(true) }
+    else autoFit(true)
+  }, [warnings, busy])
+
+  const autoFit = async (quiet = false) => {
     if (!draft) return
     setFitting(true); setBusy(true)
     const work = clone(draft)
@@ -175,7 +222,7 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
         update(d => { for (const ch of d.chapters) for (const s of ch.sections) if (changes[s.id] !== undefined) s.layout.tight = changes[s.id]! })
         setRenderedJson(JSON.stringify(work))
         toast(`Compattate ${Object.keys(changes).length} sezioni. Ricordati di salvare.`)
-      } else toast('Nessuna sezione da compattare oltre: accorcia il testo o cambia le colonne.')
+      } else if (!quiet) toast('Nessuna sezione da compattare oltre: accorcia il testo o cambia le colonne.')
     } finally { setFitting(false); setBusy(false) }
   }
 
@@ -425,7 +472,7 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
           <LivePreview ref={preview} selId={selId} onPick={pick} pins={viewing ? [] : blockPins} marks={viewing ? [] : marks} onPin={t => { setActiveThread(t); setTab('commenti') }}
             onTextSel={s => { setTextSel(s); if (s) setQuoteBox(null) }} brochure={draft.meta.kind === 'brochure'}
             busy={busy} info={pvInfo} stale={!viewing && draftJson !== renderedJson} warnings={viewing ? [] : warnings}
-            onFit={autoFit} fitting={fitting} onGoSection={sid => setSel({ kind: 'section', id: sid })} onRefresh={() => draft && render(draft)}
+            onFit={draft.meta.kind === 'brochure' ? () => fixLong() : () => autoFit()} fitting={fitting} onRecompose={canEdit ? recompose : undefined} onGoSection={sid => setSel({ kind: 'section', id: sid })} onRefresh={() => draft && render(draft)}
             overlay={<>
               {textSel && !quoteBox && (
                 <div className="selbar" style={{ top: Math.max(4, textSel.top - 44), left: textSel.left }} role="toolbar" aria-label="Frase selezionata">

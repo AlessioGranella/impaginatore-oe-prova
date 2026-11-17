@@ -74,6 +74,11 @@ em, i { font-style: normal; }
 .card .ct, .grid4 .gt { margin: 0 0 2mm; }
 .cols2 { columns: 2; column-gap: 13.5mm; max-width: 173.5mm; margin-top: 10mm; }
 .closing { margin-top: 10mm; max-width: 190mm; }
+.bsec p.ih { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); text-transform: uppercase; margin: 5mm 0 3mm; break-after: avoid; }
+.bsec .cols2 p.ih:first-child, .bsec .intro p.ih:first-child { margin-top: 0; }
+.bcolor p.ih { color: var(--on-dark); }
+.bsec p.qt { font: 400 18pt/23pt "Hedvig"; color: var(--b700); margin: 2mm 0 5mm; }
+.bcolor p.qt { color: #fff; }
 .li { padding-left: 4.5mm; text-indent: -4.5mm; }
 .li::before { content: "■"; color: var(--b700); font-size: 6pt; display: inline-block; width: 4.5mm; text-indent: 0; vertical-align: 1.5pt; }
 
@@ -145,3 +150,7 @@ em, i { font-style: normal; }
 
 /* sulle pagine scure l'accento è quello «su scuro» del brand (Lime per OE e T33, blu chiaro per Civiqa) */
 .dark .chiprow .ci, .dark .chiprow .cl { background: var(--on-dark); color: var(--dark-ink); }
+
+/* nessun asset grafico si deforma: marchi, icone e loghi a misura fissa restano in proporzione */
+img { object-fit: contain; }
+.circle.fit-ritaglia img { object-fit: cover; }
