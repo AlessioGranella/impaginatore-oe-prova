@@ -218,7 +218,10 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
         if (l2 !== null && l2 <= (secLv ?? 0)) break
         if (l2 === subLv) { more = true; break }
       }
-      if (!more) { sec.kicker = sec.title; sec.title = txt; continue }
+      // titolo grande se è l'unico titoletto della sezione, oppure se è seguito subito da un altro titoletto (le voci)
+      const nx = items.slice(i0 + 1).find(x => x.k === 'p')
+      const nextIsSub = !!nx && nx.k === 'p' && headingLevel(nx.style) === subLv
+      if (!more || nextIsSub) { sec.kicker = sec.title; sec.title = txt; continue }
     }
     const ph = txt.match(/^\[?\s*(?:foto|immagine|image|img)\s*[:–-]\s*(.+?)\s*\]?$/i)
     if (ph && txt.length < 140) { push({ id: nid(), type: 'image', image: null, caption: '', ratio: 0.5625, hint: ph[1]! }); continue }

@@ -239,7 +239,7 @@ function planSection(s: Section): PagePlan[] {
       if (prev && units[ui - 1]?.k === 'text' && prev.blocks.every(isText) && prev.blocks.reduce((n, b) => n + len(b), 0) <= 300) { intro = prev.blocks; plans.pop() }
       // in fila ci stanno i numeri finché la loro larghezza (50 pt) non supera la pagina
       const rows = u.b.rows.filter(r => r.some(c => c.trim())).slice(u.b.header && u.b.view === 'tabella' ? 1 : 0)
-      const w = rows.reduce((n, r) => n + Math.max(36, (r[0] ?? '').trim().length * 9.5) + 12, 0)
+      const w = rows.reduce((n, r) => n + Math.max(36, (r[0] ?? '').trim().length * 9.5) + 7, 0)
       const pages = Math.max(Math.ceil(w / 265), Math.ceil(rows.length / 6))
       for (const t of splitTable(u.b, Math.ceil(rows.length / pages))) { plans.push({ blocks: [...intro, t, ...s.blocks.filter(b => b.type === 'image').slice(0, 1)], opts: [{ page: 'numeri', fit: 1 }] }); intro = [] }
       continue
