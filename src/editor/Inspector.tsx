@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { assetUrl } from '../api'
-import { FORMAT_DIMS, type Block, type Doc, type TableBlock, type TextType } from '../types'
+import { FORMAT_DIMS, type Block, type Doc, type Layout, type PageType, type TableBlock, type TextType } from '../types'
 import { Icon, Menu, Segment } from '../ui/ui'
 import { AssetGridPicker, ImageField } from './ImagePicker'
 import RichText from './RichText'
@@ -45,19 +45,21 @@ function CoverPanel({ doc, update, canEdit, docId }: P) {
       <div className="insp__head"><span className="insp__crumb">Documento</span><h2>Copertina e sommario</h2></div>
       <label className="oe-field"><span className="oe-label">Titolo</span>
         <input className="oe-input" disabled={!canEdit} value={doc.cover.title} onChange={e => update(d => { d.cover.title = e.target.value; d.meta.title = e.target.value }, 'cover-title')} /></label>
-      <label className="oe-field"><span className="oe-label">Sottotitolo (in Lime, maiuscolo)</span>
+      <label className="oe-field"><span className="oe-label">{doc.meta.kind === 'brochure' ? 'Etichetta sopra il titolo (chip, facoltativa)' : 'Sottotitolo (in Lime, maiuscolo)'}</span>
         <input className="oe-input" disabled={!canEdit} value={doc.cover.subtitle} onChange={e => update(d => { d.cover.subtitle = e.target.value }, 'cover-sub')} /></label>
       <ImageField label="Foto di copertina" docId={docId} canEdit={canEdit} use="copertina" aspect={(D.PW + 6) / (D.PH + 6)}
         value={doc.cover.image} onChange={v => update(d => { d.cover.image = v })} />
       <div className="insp__group">
-        <h3>Sommario</h3>
-        <label className="oe-check"><input type="checkbox" disabled={!canEdit} checked={doc.toc.show} onChange={e => update(d => { d.toc.show = e.target.checked })} /> Mostra la pagina del sommario</label>
-        {doc.toc.show && <label className="oe-field"><span className="oe-label">Titolo del sommario</span>
+        <h3>{doc.meta.kind === 'brochure' ? 'Indice' : 'Sommario'}</h3>
+        <label className="oe-check"><input type="checkbox" disabled={!canEdit} checked={doc.toc.show} onChange={e => update(d => { d.toc.show = e.target.checked })} /> Mostra la pagina {doc.meta.kind === 'brochure' ? 'dell\'indice' : 'del sommario'}</label>
+        {doc.toc.show && <label className="oe-field"><span className="oe-label">Titolo della pagina</span>
           <input className="oe-input" disabled={!canEdit} value={doc.toc.title} onChange={e => update(d => { d.toc.title = e.target.value }, 'toc')} /></label>}
       </div>
       <div className="insp__group">
         <h3>Quarta di copertina</h3>
-        <label className="oe-check"><input type="checkbox" disabled={!canEdit} checked={doc.back.show} onChange={e => update(d => { d.back.show = e.target.checked })} /> Pagina finale viola con il logo</label>
+        <label className="oe-check"><input type="checkbox" disabled={!canEdit} checked={doc.back.show} onChange={e => update(d => { d.back.show = e.target.checked })} /> {doc.meta.kind === 'brochure' ? 'Pagina finale con logo, sedi e contatti' : 'Pagina finale viola con il logo'}</label>
+        {doc.meta.kind === 'brochure' && doc.back.show && <ImageField label="Foto della pagina finale (facoltativa)" optional docId={docId} canEdit={canEdit} use="chiusura" aspect={(D.PW + 6) / (D.PH + 6)}
+          value={doc.back.image ?? null} onChange={v => update(d => { d.back.image = v })} />}
       </div>
     </>
   )
@@ -106,9 +108,11 @@ function SectionPanel({ doc, update, canEdit, docId, setSel, ci, si }: P & { ci:
   return (
     <>
       <div className="insp__head"><span className="insp__crumb">{String(ci + 1).padStart(2, '0')} {ch.title}</span><h2>{s.title || 'Sezione senza titolo'}</h2></div>
-      <label className="oe-field"><span className="oe-label">Titolo della sezione</span>
+      <label className="oe-field"><span className="oe-label">{doc.meta.kind === 'brochure' ? 'Titolo grande della pagina' : 'Titolo della sezione'}</span>
         <input className="oe-input" disabled={!canEdit} value={s.title} onChange={e => update(d => { d.chapters[ci]!.sections[si]!.title = e.target.value }, `sec-${s.id}`)} /></label>
 
+      {doc.meta.kind === 'brochure' ? <BrochureLayout L={L} kicker={s.kicker ?? ''} chapter={ch.title} canEdit={canEdit} docId={docId}
+        setKicker={v => update(d => { d.chapters[ci]!.sections[si]!.kicker = v }, `kick-${s.id}`)} setL={setL} /> :
       <div className="insp__group">
         <h3>Impaginazione</h3>
         <div className="oe-field"><span className="oe-label">Tipo di pagina</span>
@@ -140,10 +144,10 @@ function SectionPanel({ doc, update, canEdit, docId, setSel, ci, si }: P & { ci:
               <span className="hint">Riduce spazi e interlinea per non lasciare poche righe da sole su una pagina.</span></div>
           </>
         )}
-      </div>
+      </div>}
       {canEdit && (
         <div className="insp__group">
-          <h3>Sezione</h3>
+          <h3>{doc.meta.kind === 'brochure' ? 'Pagina' : 'Sezione'}</h3>
           <div className="insp__actions">
             <AddBlock onAdd={t => { const b = newBlock(t); update(d => { d.chapters[ci]!.sections[si]!.blocks.push(b) }); setSel({ kind: 'block', id: b.id }) }} label="Aggiungi contenuto in fondo" />
             <button className="oe-btn oe-btn--ghost oe-btn--sm" disabled={si === 0} onClick={() => update(d => move(d.chapters[ci]!.sections, si, -1))}><Icon name="up" />Su</button>
@@ -158,6 +162,52 @@ function SectionPanel({ doc, update, canEdit, docId, setSel, ci, si }: P & { ci:
       )}
       {orn && <AssetGridPicker kind="illustrazione" title="Illustrazione pixel" value={L.ornament} onClose={() => setOrn(false)} onPick={id => { setL(l => { l.ornament = id }); setOrn(false) }} />}
     </>
+  )
+}
+
+/* ---------------------------------------------------------------- brochure: tipo di pagina */
+const PAGES: { v: PageType; l: string; help: string }[] = [
+  { v: 'testo', l: 'Testo', help: 'Titolo e voci in griglia: ogni sottotitolo (in maiuscolo bluette) con il suo testo. Senza sottotitoli il testo va su una o due colonne.' },
+  { v: 'card', l: 'Card', help: 'Riquadri grigi affiancati con icona, titolo e testo, su fondo a puntini. Usa la prima tabella (titolo · testo, icone dal box) o le coppie sottotitolo + testo.' },
+  { v: 'colore', l: 'Colore', help: 'Pagina al vivo: foto (o bluette pieno) con il testo bianco a sinistra. Scegli una foto con il soggetto a destra.' },
+  { v: 'prodotto', l: 'Prodotto', help: 'Testo a sinistra e un grande cerchio colorato a destra con la foto o il mockup. Sottotitoli = riga in maiuscolo; voci di elenco = tre punti in basso.' },
+  { v: 'numeri', l: 'Numeri', help: 'Numeri grandi in fila (tabella: valore · unità · descrizione) e, se c\'è un\'immagine nella sezione, una fascia grigia con i loghi.' },
+  { v: 'griglia', l: 'Griglia', help: 'Fino a otto voci su quattro colonne (titolo bluette e testo), su fondo a puntini: per progetti, casi, servizi.' },
+  { v: 'citazione', l: 'Citazione', help: 'Una frase grande in serif. Le parti in grassetto diventano colorate.' },
+]
+function BrochureLayout({ L, kicker, chapter, canEdit, docId, setKicker, setL }: {
+  L: Layout; kicker: string; chapter: string; canEdit: boolean; docId: string; setKicker: (v: string) => void; setL: (fn: (l: Layout) => void) => void
+}) {
+  const page = L.page ?? 'testo'
+  const P = PAGES.find(x => x.v === page)!
+  return (
+    <div className="insp__group">
+      <h3>Impaginazione</h3>
+      <label className="oe-field"><span className="oe-label">Etichetta della chip</span>
+        <input className="oe-input" disabled={!canEdit} value={kicker} placeholder={chapter} onChange={e => setKicker(e.target.value)} />
+        <span className="hint">Il riquadro lime con la freccia sopra il titolo. Se è vuota uso il titolo del capitolo.</span></label>
+      <div className="oe-field"><span className="oe-label">Tipo di pagina</span>
+        <div className="pagetypes" role="radiogroup" aria-label="Tipo di pagina">
+          {PAGES.map(x => <button key={x.v} role="radio" aria-checked={page === x.v} disabled={!canEdit} className={`oe-btn oe-btn--sm ${page === x.v ? 'oe-btn--primary' : 'oe-btn--secondary'}`} onClick={() => setL(l => { l.page = x.v })}>{x.l}</button>)}
+        </div>
+        <span className="hint">{P.help}</span></div>
+      {(page === 'colore' || page === 'prodotto') && (
+        <ImageField label={page === 'colore' ? 'Foto della pagina (facoltativa)' : 'Foto o mockup nel cerchio'} optional docId={docId} canEdit={canEdit} use={page === 'colore' ? 'pagina' : 'cerchio'}
+          aspect={page === 'colore' ? 309 / 183 : 1} value={L.band} onChange={v => setL(l => { l.band = v })} />
+      )}
+      {page === 'prodotto' && (
+        <>
+          <div className="oe-field"><span className="oe-label">Colore del cerchio</span>
+            <Segment label="Colore del cerchio" value={L.circle ?? 'magenta'} onChange={v => canEdit && setL(l => { l.circle = v })}
+              options={[{ v: 'magenta', l: 'Magenta' }, { v: 'verde', l: 'Verde' }, { v: 'bluette', l: 'Bluette' }, { v: 'lime', l: 'Lime' }]} />
+            <span className="hint">Nelle brochure OE: magenta per Externalytics, verde per Sonar.</span></div>
+          <div className="oe-field"><span className="oe-label">Immagine</span>
+            <Segment label="Immagine nel cerchio" value={L.circleFit ?? 'ritaglia'} onChange={v => canEdit && setL(l => { l.circleFit = v })}
+              options={[{ v: 'ritaglia', l: 'Ritagliata nel cerchio' }, { v: 'sopra', l: 'Sopra il cerchio (mockup)' }]} />
+            <span className="hint">«Sopra il cerchio» è per i mockup con lo sfondo trasparente (PNG), come il portatile con la piattaforma.</span></div>
+        </>
+      )}
+    </div>
   )
 }
 

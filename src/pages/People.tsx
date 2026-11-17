@@ -13,7 +13,7 @@ export default function People() {
   const [add, setAdd] = useState('')
   return (
     <>
-      <TopBar eyebrow="Impaginatore" title="Persone" />
+      <TopBar eyebrow="Layout Designer" title="Persone" />
       <main className="page" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 48 }}>
         <section style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div className="page-head__text">

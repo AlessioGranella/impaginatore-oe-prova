@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="robots" content="noindex" />
-    <title>Anteprima — Impaginatore OE</title>
+    <title>Anteprima — OpenEconomics Layout Designer</title>
     <style>
       html, body { margin: 0; background: #E7E7E7; }
       #vp { padding: 24px 0 96px; }
@@ -17,6 +17,10 @@
       .imp-sel { outline: 2px solid #4400B3 !important; outline-offset: 1px; }
       .imp-pin { position: absolute; z-index: 10; min-width: 22px; height: 22px; padding: 0 5px; border: 0; cursor: pointer;
         background: #B9FF69; color: #000; font: 500 12px/22px "Atkinson Mono", monospace; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+      /* frasi commentate (Highlight API) e selezione del testo */
+      ::highlight(imp-cm) { background-color: rgba(185,255,105,.75); color: inherit; }
+      .imp-over { outline: 2px dashed #E5007E; outline-offset: -1px; }
+      ::selection { background: rgba(68,0,179,.25); }
       body.printing [data-vivliostyle-spread-container] { display: block !important; }
       @media print {
         html, body { background: none; }
@@ -24,6 +28,8 @@
         [data-vivliostyle-page-container] { box-shadow: none; }
         .imp-pin { display: none; }
         .imp-hover, .imp-sel { outline: none !important; }
+        ::highlight(imp-cm) { background-color: transparent; }
+        .imp-over { outline: none; }
       }
     </style>
   </head>

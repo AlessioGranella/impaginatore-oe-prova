@@ -37,17 +37,22 @@ function lowRes(p: PhotoIn, wmm: number, hmm: number, zoom: number): string | un
 }
 
 export function placePhotos(doc: Doc, photos: PhotoIn[], onlyEmpty = true): Placement[] {
-  const F = FORMATS[doc.meta.format] ?? FORMATS.a4v
+  const isBr = doc.meta.kind === 'brochure'
+  const F0 = FORMATS[doc.meta.format as 'a4v' | 'a4o'] ?? FORMATS.a4v
+  // brochure: pagina 303 × 177; le foto delle pagine vanno a tutta pagina (pagina colore) o nel cerchio (pagina prodotto)
+  const F = isBr ? { ...F0, PW: 303, PH: 177, ML: 12.7, MR: 12.7, BAND: 183 } : F0
   const PWB = F.PW + 6, PHB = F.PH + 6
   const out: Placement[] = []
   const left = new Map(photos.map(p => [p.id, p]))
   const take = (p: PhotoIn, where: string, reason: string, warn?: string) => { left.delete(p.id); out.push({ photo: p.id, name: p.name, kind: p.info.kind, where, reason, warn }) }
   const sections = doc.chapters.flatMap((ch, ci) => ch.sections.map((s, si) => ({ s, ch, ci, si })))
-  const bandOk = (s: Section) => s.layout.mode !== 'highlights' && s.layout.cols !== 'w' && (!onlyEmpty || !s.layout.band)
+  const bandOk = (s: Section) => isBr ? (s.layout.page === 'colore' || s.layout.page === 'prodotto') && (!onlyEmpty || !s.layout.band) : s.layout.mode !== 'highlights' && s.layout.cols !== 'w' && (!onlyEmpty || !s.layout.band)
     && s.blocks.filter(b => b.type === 'p' || b.type === 'li').length >= 2
-  const setBand = (s: Section, p: PhotoIn) => { s.layout.band = ref(p, 0.8) }
+  const setBand = (s: Section, p: PhotoIn) => { s.layout.band = ref(p, isBr ? 1 : 0.8) }
   const coverFree = () => !onlyEmpty || !doc.cover.image
-  const sectionLabel = (x: { s: Section; ch: { title: string } }) => `In fondo alla sezione «${x.s.title || x.ch.title}»`
+  const sectionLabel = (x: { s: Section; ch: { title: string } }) => isBr
+    ? `${x.s.layout.page === 'prodotto' ? 'Nel cerchio della pagina' : 'A tutta pagina in'} «${x.s.title || x.ch.title}»`
+    : `In fondo alla sezione «${x.s.title || x.ch.title}»`
 
   // 1. segnaposto nel Word: [Foto: nome-file]
   for (const { s } of sections) for (const b of s.blocks) {
@@ -102,7 +107,7 @@ export function placePhotos(doc: Doc, photos: PhotoIn[], onlyEmpty = true): Plac
     const p = subj.shift()
     if (!p) break
     slot.set(p)
-    take(p, slot.label, 'Foto con un soggetto in evidenza: nel Report va in copertina e nelle aperture dei capitoli', lowRes(p, PWB, PHB, 1))
+    take(p, slot.label, isBr ? 'Foto con un soggetto in evidenza: va in copertina e nelle aperture' : 'Foto con un soggetto in evidenza: nel Report va in copertina e nelle aperture dei capitoli', lowRes(p, PWB, PHB, 1))
   }
   // aperture rimaste senza foto: meglio una foto d'ambiente che il viola pieno
   const emptyPages = pages.filter(sl => !out.some(o => o.where === sl.label))
@@ -111,6 +116,13 @@ export function placePhotos(doc: Doc, photos: PhotoIn[], onlyEmpty = true): Plac
     if (!p) break
     slot.set(p)
     take(p, slot.label, 'Non c\'erano abbastanza foto con soggetto per le pagine intere: uso una foto d\'ambiente', lowRes(p, PWB, PHB, 1))
+  }
+  // brochure: le foto con soggetto avanzate vanno nelle pagine colore e prodotto (il soggetto sta a destra, il testo a sinistra)
+  if (isBr) for (const x of sections.filter(x => bandOk(x.s))) {
+    const p = subj.shift() ?? amb.shift()
+    if (!p) break
+    setBand(x.s, p)
+    take(p, sectionLabel(x), p.info.kind === 'soggetto' ? 'Foto con soggetto: nella pagina il testo sta a sinistra e il soggetto a destra' : 'Foto d\'ambiente come fondo della pagina', lowRes(p, x.s.layout.page === 'prodotto' ? 154 : PWB, x.s.layout.page === 'prodotto' ? 154 : PHB, 1))
   }
   // foto d'ambiente in fondo alle sezioni, distribuite in modo regolare (sezioni con più testo prima)
   const elig = sections.filter(x => bandOk(x.s))
@@ -127,7 +139,9 @@ export function placePhotos(doc: Doc, photos: PhotoIn[], onlyEmpty = true): Plac
   for (const p of left.values()) {
     out.push({
       photo: p.id, name: p.name, kind: p.info.kind, where: null,
-      reason: p.info.kind === 'soggetto'
+      reason: isBr
+        ? 'Copertina, aperture e pagine con foto (colore o prodotto) sono già tutte occupate. La trovi tra le immagini del documento: per usarla, imposta una pagina come «Colore» o «Prodotto».'
+        : p.info.kind === 'soggetto'
         ? 'Foto con soggetto: nel Report va solo in copertina e nelle aperture, che sono già tutte occupate. La trovi tra le immagini del documento.'
         : 'Non ci sono altre sezioni adatte (testo sufficiente e senza foto). La trovi tra le immagini del documento.',
     })

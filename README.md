@@ -1,6 +1,7 @@
-# Impaginatore OE — versione di prova (senza server)
+# OpenEconomics Layout Designer — versione di prova (senza server)
 
-Strumento di OpenEconomics per impaginare documenti con il design system OE partendo dal Word.
+Strumento di OpenEconomics per impaginare bilanci di sostenibilità e brochure con il design system OE, partendo dal Word.
+Brand disponibili: OpenEconomics, Civiqa, T33 (cambiano logo e colori; regole e caratteri restano quelli del DS).
 Questa è la **versione di prova**: gira tutta nel browser, senza accesso e senza server, pubblicata su
 GitHub Pages. La versione completa, con server, è in un repository privato (`impaginatore-oe`) e andrà
 sui server di OpenEconomics.
@@ -10,10 +11,41 @@ sui server di OpenEconomics.
 ## Come si usa
 
 1. Al primo accesso scrivi il tuo nome: firma le versioni e i commenti.
-2. **Nuovo documento da Word** → carichi il .docx e scegli A4 verticale o orizzontale. L'impaginazione arriva in pochi secondi.
-3. Clicchi un testo, una foto o un box nell'anteprima e lo modifichi nel pannello a destra. L'anteprima si aggiorna da sola.
+2. **Nuovo documento** apre un wizard in tre passi:
+   1. **tipo**: bilancio di sostenibilità (A4 verticale o orizzontale) o brochure (orizzontale 303 × 177 mm);
+   2. **brand**: OpenEconomics, Civiqa o T33;
+   3. **Word e foto**: il .docx del testo e, se ci sono, le foto. L'impaginazione arriva in pochi secondi.
+3. Clicchi un testo, una foto o un box nell'anteprima e lo modifichi nel pannello a destra. Il testo cambia subito nella pagina; la
+   reimpaginazione avviene dietro (due anteprime che si scambiano), quindi la pagina non si ricarica e resti nel punto in cui scrivi.
 4. **Salva versione** crea una versione (si possono guardare e ripristinare nella scheda Versioni).
 5. **PDF** → si apre la stampa del browser: scegli «Salva come PDF» e lascia attiva «Grafica di sfondo».
+
+### Brochure
+
+Modello ricalcato sulle brochure OE in `OpenEconomics/Contesto/` (OpenEconomics, Externalytics, Sonar): copertina con foto, indice,
+pagine di apertura con foto, una pagina per ogni sezione, chiusura con sedi e contatti. Ogni sezione ha un **tipo di pagina**:
+testo (voci in griglia), card, colore (foto al vivo e testo bianco), prodotto (cerchio a destra con foto o mockup), numeri,
+griglia (progetti), citazione. Il tool lo sceglie in base al contenuto del Word; si cambia dal pannello della pagina.
+
+Come leggere il Word: «Titolo» = copertina; Titolo 1 = apertura; Titolo 2 = pagina; un Titolo 3 subito sotto il Titolo 2 diventa il
+titolo grande (il Titolo 2 va nella chip). Titoli 3 seguiti da testo = voci, card o griglia; tabelle titolo · testo = card o griglia;
+tabelle con una colonna di numeri = pagina dei numeri; «Citazione in evidenza:» = citazione.
+
+Se il contenuto non entra nella pagina l'anteprima lo segnala (bordo tratteggiato e avviso «pagina troppo piena»).
+
+### Commenti su una frase
+
+Selezioni una frase nella pagina → **Commenta** (come in Acrobat): il commento resta legato a quella frase, che appare evidenziata.
+Con @ si cita un collega. Dalla stessa barra, **Chiedi una modifica** apre l'AI su quella frase.
+
+### Chiedi all'AI
+
+Scheda «Chiedi all'AI»: scrivi cosa cambiare («accorcia questa sezione», «fai diventare questa pagina a card») e Claude
+(`claude-opus-5-5`) modifica il documento. Il bersaglio è il punto selezionato (o il documento intero). Il risultato va nella
+bozza: si annulla con ⌘Z, diventa versione solo con «Salva versione». Le modifiche vengono controllate prima di applicarle
+(`src/local/ai.ts`: tipi, id, solo grassetto e a capo, solo immagini già presenti).
+Serve una chiave API di Anthropic, inserita da ciascuno nel proprio browser (resta in localStorage, va solo ad api.anthropic.com).
+Nella versione con server la chiave starà sul server.
 
 ### Foto
 

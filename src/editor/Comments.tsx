@@ -32,7 +32,7 @@ export default function Comments({ docId, doc, comments, users, anchor, setAncho
         <span className="oe-label">Nuovo commento</span>
         {anchor ? (
           <div className="cm-anchor">Su: {anchorText} <button className="oe-btn oe-btn--ghost oe-btn--sm" style={{ padding: 0, marginLeft: 8 }} onClick={() => setAnchor(null)}>generale</button></div>
-        ) : <div className="cm-anchor">Sul documento in generale. Per commentare un punto preciso cliccalo nell'anteprima.</div>}
+        ) : <div className="cm-anchor">Sul documento in generale. Per commentare una frase selezionala nella pagina; per un blocco intero cliccalo.</div>}
         <Composer docId={docId} users={users} anchor={anchor} onSent={reload} placeholder="Scrivi un commento. Con @ citi un collega: riceve una notifica." />
       </div>
       <Segment label="Filtro commenti" value={filter} onChange={setFilter}
@@ -57,6 +57,7 @@ function Thread({ root, replies, where, users, docId, active, onClick, reload }:
   return (
     <article id={`th-${root.id}`} className={`thread${active ? ' is-sel' : ''}${root.resolved ? ' is-resolved' : ''}`} onClick={onClick}>
       <div className="cm__where">{where}</div>
+      {root.quote && <blockquote className="cm__quote">«{root.quote}»</blockquote>}
       <One c={root} me={me.id} onDelete={() => del(root)} />
       {replies.length > 0 && <div className="thread__replies">{replies.map(r => <One key={r.id} c={r} me={me.id} onDelete={() => del(r)} />)}</div>}
       <div className="insp__actions" onClick={e => e.stopPropagation()}>
@@ -84,9 +85,10 @@ function One({ c, me, onDelete }: { c: Comment; me: string; onDelete: () => void
   )
 }
 
-/** Campo di testo con suggerimenti @nome. */
-function Composer({ docId, users, anchor, parent, onSent, placeholder, autoFocus }: {
+/** Campo di testo con suggerimenti @nome. Con quote il commento è su una frase selezionata nella pagina. */
+export function Composer({ docId, users, anchor, parent, onSent, placeholder, autoFocus, quote, onCancel }: {
   docId: string; users: User[]; anchor: string | null; parent?: string; onSent: () => void; placeholder: string; autoFocus?: boolean
+  quote?: string; onCancel?: () => void
 }) {
   const toast = useToast()
   const [text, setText] = useState('')
@@ -121,7 +123,7 @@ function Composer({ docId, users, anchor, parent, onSent, placeholder, autoFocus
     setBusy(true)
     try {
       const ids = Object.entries(mentions).filter(([, n]) => text.includes(`@${n}`)).map(([id]) => id)
-      await api.post(`/documents/${docId}/comments`, { body: text, block_id: anchor, parent_id: parent, mentions: ids })
+      await api.post(`/documents/${docId}/comments`, { body: text, block_id: anchor, parent_id: parent, mentions: ids, ...(quote ? { quote } : {}) })
       setText(''); setMentions({})
       onSent()
       if (ids.length) toast(`Commento inviato: ${ids.length === 1 ? 'la persona citata riceve' : `le ${ids.length} persone citate ricevono`} una notifica`)
@@ -135,6 +137,7 @@ function Composer({ docId, users, anchor, parent, onSent, placeholder, autoFocus
       if (e.key === 'Escape') { setQ(null); return }
     }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() }
+    if (e.key === 'Escape' && onCancel) { e.preventDefault(); onCancel() }
   }
   return (
     <div className="cm-input">
@@ -150,8 +153,11 @@ function Composer({ docId, users, anchor, parent, onSent, placeholder, autoFocus
         </div>
       )}
       <div className="insp__actions" style={{ marginTop: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="hint">⌘+Invio per inviare</span>
-        <button className="oe-btn oe-btn--primary oe-btn--sm" disabled={busy || !text.trim()} onClick={send}>Invia <Icon name="arrow" /></button>
+        <span className="hint">⌘+Invio per inviare · @ per citare</span>
+        <span style={{ display: 'flex', gap: 8 }}>
+          {onCancel && <button className="oe-btn oe-btn--ghost oe-btn--sm" onClick={onCancel}>Annulla</button>}
+          <button className="oe-btn oe-btn--primary oe-btn--sm" disabled={busy || !text.trim()} onClick={send}>Invia <Icon name="arrow" /></button>
+        </span>
       </div>
     </div>
   )

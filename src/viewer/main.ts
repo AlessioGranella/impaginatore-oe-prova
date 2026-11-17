@@ -4,15 +4,24 @@
 import { CoreViewer, ReadyState } from '@vivliostyle/core'
 
 export interface SectionInfo { id: string; title: string; blocks: string[]; tight: number }
-export interface Warn { section: string; title: string; page: number; fill: number; tight: number }
+export interface Warn { section: string; title: string; page: number; fill: number; tight: number; kind?: 'vuota' | 'lunga' }
 export interface Pin { blockId: string; count: number; threadId: string }
+export interface Mark { threadId: string; blockId: string; quote: string }
+export interface Anchor { bid: string | null; page: number; y: number }
+export interface TextSel { bid: string; quote: string; x: number; y: number; w: number; h: number }
 export interface ViewerApi {
-  render(html: string, opts: { sections: SectionInfo[]; contentTop: number; contentH: number; spread: boolean; keepScroll: boolean }): Promise<{ pages: number; warnings: Warn[]; ms: number }>
+  render(html: string, opts: { sections: SectionInfo[]; contentTop: number; contentH: number; spread: boolean; anchor: Anchor | null; overflow?: boolean }): Promise<{ pages: number; warnings: Warn[]; ms: number }>
   select(id: string | null, scroll: boolean): void
   pins(p: Pin[]): void
+  marks(m: Mark[]): void
+  /** testo nuovo di un blocco, scritto subito nella pagina (senza reimpaginare): false se il blocco è spezzato o assente */
+  patch(bid: string, html: string): boolean
+  anchor(): Anchor | null
+  restore(a: Anchor | null): void
   print(): void
   onPick?: (id: string) => void
   onPin?: (threadId: string) => void
+  onTextSel?: (s: TextSel | null) => void
 }
 
 const vp = document.getElementById('vp')!
@@ -25,6 +34,8 @@ viewer.addListener('error', e => { errors.push(String((e as { content?: { messag
 let lastUrl = ''
 let selId: string | null = null
 let pinList: Pin[] = []
+let markList: Mark[] = []
+let markRanges: { range: Range; threadId: string }[] = []
 const pages = () => Array.from(document.querySelectorAll<HTMLElement>('[data-vivliostyle-page-container]'))
 
 /** Dispone le pagine in colonna (o due per riga) e adatta l'ingrandimento alla larghezza.
@@ -71,8 +82,6 @@ window.addEventListener('resize', () => layoutPages(spreadMode))
 const api: ViewerApi = {
   async render(html, opts) {
     const t0 = performance.now()
-    // punto di riferimento per non perdere il segno: il blocco selezionato, altrimenti la prima pagina in vista
-    const anchor = findAnchor()
     errors = []
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
     const done = new Promise<void>(r => { readyResolve = r })
@@ -83,9 +92,9 @@ const api: ViewerApi = {
     lastUrl = url
     layoutPages(opts.spread)
     decorate()
-    if (opts.keepScroll && anchor) restoreAnchor(anchor)
+    if (opts.anchor) restoreAnchor(opts.anchor)
     if (errors.length) console.warn('vivliostyle', errors)
-    return { pages: pages().length, warnings: warnings(opts.sections, opts.contentTop, opts.contentH), ms: Math.round(performance.now() - t0) }
+    return { pages: pages().length, warnings: opts.overflow ? overflowWarnings(opts.sections) : warnings(opts.sections, opts.contentTop, opts.contentH), ms: Math.round(performance.now() - t0) }
   },
   select(id, scroll) {
     selId = id
@@ -99,6 +108,18 @@ const api: ViewerApi = {
     }
   },
   pins(p) { pinList = p; decorate() },
+  marks(m) { markList = m; paintMarks() },
+  patch(bid, html) {
+    const els = document.querySelectorAll<HTMLElement>(`[data-vivliostyle-page-container] [data-bid="${CSS.escape(bid)}"]`)
+    if (els.length !== 1) return false
+    const el = els[0]!
+    if (!/^(P|H4|BLOCKQUOTE|DIV)$/.test(el.tagName) || el.querySelector('[data-bid], img, table')) return false
+    el.innerHTML = html
+    paintMarks()
+    return true
+  },
+  anchor: () => findAnchor(),
+  restore: a => { if (a) restoreAnchor(a) },
   print() {
     // in stampa: una pagina per foglio, a grandezza reale, senza spazi tra le pagine
     printLayout()
@@ -121,7 +142,6 @@ async function settle() {
   }
 }
 
-type Anchor = { bid: string | null; page: number; y: number }
 function findAnchor(): Anchor | null {
   const sel = selId ? document.querySelector<HTMLElement>(`[data-vivliostyle-page-container] [data-bid="${CSS.escape(selId)}"]`) : null
   if (sel) { const r = sel.getBoundingClientRect(); if (r.bottom > 0 && r.top < window.innerHeight) return { bid: selId, page: -1, y: r.top } }
@@ -135,8 +155,56 @@ function restoreAnchor(a: Anchor) {
   window.scrollBy(0, el.getBoundingClientRect().top - a.y)
 }
 
+/* ---- passaggi di testo commentati: evidenziati con la Highlight API (non si tocca il testo della pagina) */
+function textRange(root: HTMLElement, quote: string): Range | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const nodes: { n: Text; start: number }[] = []
+  let all = ''
+  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) { nodes.push({ n, start: all.length }); all += n.data }
+  const norm = (s: string) => s.replace(/\s+/g, ' ')
+  // confronto con gli spazi normalizzati: si costruisce una mappa posizione-normalizzata -> posizione reale
+  const map: number[] = []
+  let flat = ''
+  for (let i = 0; i < all.length; i++) {
+    const ch = /\s/.test(all[i]!) ? ' ' : all[i]!
+    if (ch === ' ' && flat.endsWith(' ')) continue
+    flat += ch; map.push(i)
+  }
+  const q = norm(quote).trim()
+  const at = flat.indexOf(q)
+  if (at < 0 || !q) return null
+  const s = map[at]!, e = map[at + q.length - 1]! + 1
+  const pos = (k: number) => { const x = nodes.filter(o => o.start <= k).pop()!; return { node: x.n, off: Math.min(k - x.start, x.n.data.length) } }
+  const a = pos(s), b = pos(e - 1)
+  const r = document.createRange()
+  r.setStart(a.node, a.off); r.setEnd(b.node, b.off + 1)
+  return r
+}
+function paintMarks() {
+  markRanges = []
+  const H = (window as unknown as { Highlight?: new (...r: Range[]) => unknown }).Highlight
+  const reg = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
+  for (const m of markList) {
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[data-vivliostyle-page-container] [data-bid="${CSS.escape(m.blockId)}"]`))) {
+      const r = textRange(el, m.quote)
+      if (r) { markRanges.push({ range: r, threadId: m.threadId }); break }
+    }
+  }
+  if (H && reg) reg.set('imp-cm', new H(...markRanges.map(x => x.range)))
+}
+function markAt(x: number, y: number): string | null {
+  const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null; caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null }
+  let node: Node | null = null, off = 0
+  const cp = d.caretPositionFromPoint?.(x, y)
+  if (cp) { node = cp.offsetNode; off = cp.offset } else { const cr = d.caretRangeFromPoint?.(x, y); if (cr) { node = cr.startContainer; off = cr.startOffset } }
+  if (!node) return null
+  for (const m of markRanges) { try { if (m.range.isPointInRange(node, off)) return m.threadId } catch { /* nodo di un altro documento */ } }
+  return null
+}
+
 /* ---- selezione e segnaposto dei commenti dopo ogni impaginazione */
 function decorate() {
+  paintMarks()
   document.querySelectorAll('.imp-pin').forEach(e => e.remove())
   if (selId) api.select(selId, false)
   for (const pin of pinList) {
@@ -166,9 +234,44 @@ document.addEventListener('mouseover', e => {
   hover?.classList.add('imp-hover')
 })
 document.addEventListener('click', e => {
+  const s = document.getSelection()
+  if (s && !s.isCollapsed && s.toString().trim()) return // si sta selezionando una frase: niente clic sul blocco
+  const th = markAt(e.clientX, e.clientY)
+  if (th) { e.preventDefault(); api.onPin?.(th); return }
   const t = (e.target as Element).closest?.('[data-bid]') as HTMLElement | null
   if (t && t.closest('[data-vivliostyle-page-container]')) { e.preventDefault(); api.onPick?.(t.dataset.bid!) }
 })
+
+/* ---- frase selezionata nella pagina: la si passa all'editor per commentarla (come in Acrobat) o chiedere una modifica */
+document.addEventListener('mouseup', () => setTimeout(() => {
+  const s = document.getSelection()
+  const q = s && !s.isCollapsed ? s.toString().replace(/\s+/g, ' ').trim() : ''
+  if (!s || !q || q.length < 2) { api.onTextSel?.(null); return }
+  const r = s.getRangeAt(0)
+  const start = (r.startContainer.nodeType === 1 ? r.startContainer as Element : r.startContainer.parentElement)?.closest<HTMLElement>('[data-vivliostyle-page-container] [data-bid]')
+  if (!start) { api.onTextSel?.(null); return }
+  const rects = Array.from(r.getClientRects()).filter(x => x.width > 0)
+  const top = rects[0] ?? r.getBoundingClientRect()
+  api.onTextSel?.({ bid: start.dataset.bid!, quote: q.slice(0, 400), x: top.left, y: top.top, w: top.width, h: top.height })
+}, 0))
+document.addEventListener('mousedown', e => { if (!(e.target as Element).closest?.('.imp-pin')) api.onTextSel?.(null) })
+window.addEventListener('scroll', () => { const s = document.getSelection(); if (s && !s.isCollapsed) api.onTextSel?.(null) }, { passive: true })
+
+/* ---- brochure: ogni sezione è una pagina; avviso se il contenuto non ci sta e continua sulla pagina dopo */
+function overflowWarnings(sections: SectionInfo[]): Warn[] {
+  const ps = pages()
+  const out: Warn[] = []
+  document.querySelectorAll('.imp-over').forEach(e => e.classList.remove('imp-over'))
+  for (const s of sections) {
+    const i = ps.findIndex(p => p.querySelector(`.pg[data-bid="${CSS.escape(s.id)}"]`))
+    const box = i >= 0 ? ps[i]!.querySelector<HTMLElement>(`.pg[data-bid="${CSS.escape(s.id)}"] .pgc`) : null
+    if (!box) continue
+    // il riquadro della pagina taglia ciò che non ci sta: quanto testo resta fuori, in proporzione
+    const extra = box.scrollHeight - box.clientHeight
+    if (extra > 2) { box.classList.add('imp-over'); out.push({ section: s.id, title: s.title, page: i + 1, fill: 1 + extra / box.clientHeight, tight: s.tight, kind: 'lunga' }) }
+  }
+  return out
+}
 
 /* ---- avvisi: sezioni che finiscono con poche righe da sole su una pagina */
 function warnings(sections: SectionInfo[], contentTop: number, contentH: number): Warn[] {

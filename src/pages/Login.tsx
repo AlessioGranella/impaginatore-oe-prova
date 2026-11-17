@@ -16,7 +16,7 @@ export default function Login({ onDone }: { onDone: () => void }) {
       <section className="login__side">
         <a className="oe-logo-link" href="https://www.openeconomics.eu" target="_blank" rel="noopener" aria-label="OpenEconomics"><Wordmark /></a>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <span className="oe-tag-chip oe-tag-chip--lime" style={{ alignSelf: 'flex-start' }}>Impaginatore · versione di prova</span>
+          <span className="oe-tag-chip oe-tag-chip--lime" style={{ alignSelf: 'flex-start' }}>OpenEconomics Layout Designer · versione di prova</span>
           <h1>Dal Word al documento impaginato, nel design system</h1>
           <p>Carichi il testo, il tool impagina. Poi correggi testi, foto e icone, salvi le versioni e commenti con il team. Tutto resta nel tuo browser: per condividere un documento si usa il suo file .oe.</p>
         </div>

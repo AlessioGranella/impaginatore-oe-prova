@@ -1,0 +1,147 @@
+/* Modello «Brochure» — ricalcato sulle brochure OpenEconomics (OE_Brochure_OpenEconomics_ITA, Externalytics, Sonar
+   in OpenEconomics/Contesto). Pagina 303 × 177 mm, margini 12,7 mm, marchio in basso a sinistra, numero in basso a destra.
+   Misure prese dai PDF originali (posizioni in mm dal bordo della pagina).
+   I colori del brand (var(--b700), var(--lime)…) li sostituisce il motore (engine.applyBrand). */
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-Medium.ttf); font-weight: 500; }
+@font-face { font-family: "Atkinson Next"; src: url(fonts/AtkinsonHyperlegibleNext-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: "Hedvig"; src: url(fonts/HedvigLettersSerif-18pt-Regular.ttf); }
+@font-face { font-family: "Atkinson Mono"; src: url(fonts/AtkinsonMono-400.ttf); font-weight: 400; }
+@font-face { font-family: "Atkinson Mono"; src: url(fonts/AtkinsonMono-500.ttf); font-weight: 500; }
+
+/* ------------------------------------------------------------- pagine
+   Ogni pagina è un riquadro fisso 303 × 177 mm: fondo (.pgbg, esteso di 3 mm per le abbondanze), contenuto (.pgc,
+   dentro i margini, tagliato se non ci sta: l'anteprima lo segnala), marchio e numero di pagina disegnati dentro.
+   Niente regole @page per pagina: con molte pagine nominate Vivliostyle sbaglia l'ordine. */
+@page { size: 303mm 177mm; margin: 0; @BLEED@ }
+html { font-family: "Atkinson Next"; font-size: 12pt; line-height: 14.5pt; color: #000; }
+body { margin: 0; }
+p { margin: 0 0 4.2mm; hyphens: manual; }
+strong { font-weight: 600; }
+em, i { font-style: normal; }
+.pg { position: relative; width: 303mm; height: 177mm; break-before: page; break-after: avoid; break-inside: avoid; }
+.pg:first-child { break-before: auto; }
+.pgbg { position: absolute; left: -3mm; top: -3mm; width: 309mm; height: 183mm; background-color: #fff; background-repeat: no-repeat; }
+.pgc { position: absolute; left: 12.7mm; top: 12.7mm; width: 277.6mm; height: 142.3mm; overflow: hidden; }
+.pg.tall .pgc { height: 151.6mm; }
+.pmark { position: absolute; left: 12.7mm; top: 157.1mm; width: 7.2mm; height: 7.2mm; display: block; }
+.pnum { position: absolute; right: 12.7mm; top: 160.1mm; font: 400 9pt/1 "Atkinson Next"; color: var(--b700); }
+.pg.dark .pnum { color: #fff; }
+/* fondi delle pagine */
+.bg-grey { background-color: #F0F0F0 !important; background-image: @PIXGREY@; background-position: 3mm 130.6mm; background-size: 303mm auto; }
+.bg-pix { background-image: @PIXSIDE@; background-position: 229.8mm 3mm; background-size: 76.1mm auto; }
+.bg-dots { background-image: radial-gradient(circle, var(--b050) 0.45mm, rgba(255,255,255,0) 0.5mm); background-size: 9.14mm 9.14mm; background-position: 4.6mm 4.9mm; background-repeat: repeat; }
+
+/* ------------------------------------------------------------- chip (icona freccia + etichetta) */
+.chiprow { display: flex; gap: 2.5mm; height: 7.2mm; margin: 0 0 6mm; }
+.chiprow .ci { width: 7.2mm; height: 7.2mm; background: var(--lime); flex: none; }
+.chiprow .ci svg { display: block; width: 7.2mm; height: 7.2mm; }
+.chiprow .cl { background: var(--lime); color: var(--chip-ink); font: 400 8pt/7.2mm "Atkinson Mono"; letter-spacing: .06em; text-transform: uppercase; padding: 0 2.6mm; white-space: nowrap; }
+.h2 { font: 400 40pt/48pt "Hedvig"; color: #000; margin: 0; max-width: 212mm; }
+.onphoto .h2, .onphoto { color: #fff; }
+
+/* ------------------------------------------------------------- copertina */
+.bcover { height: 100%; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+.bcover .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.bcover .logo { width: 68.7mm; display: block; }
+.bcover .site { font: 400 10pt/1 "Atkinson Next"; color: #fff; padding-top: .3mm; }
+.bcover .bot { display: flex; justify-content: space-between; align-items: flex-end; }
+.bcover h1 { font: 400 69.5pt/75pt "Hedvig"; margin: 0; max-width: 210mm; }
+.bcover .chiprow { margin-bottom: 5mm; }
+.ring { width: 44mm; height: 44mm; flex: none; }
+.ring img { width: 44mm; height: 44mm; display: block; }
+
+/* ------------------------------------------------------------- indice */
+.btoc .h2 { margin-bottom: 9.5mm; }
+.tcols { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 0; }
+.tcol { padding-right: 8mm; }
+.tcol .tg { font: 400 18.3pt/22pt "Atkinson Next"; color: var(--b700); height: 27.2mm; margin: 0; }
+.te { display: grid; grid-template-columns: 7.2mm 1fr; font: 400 10pt/12pt "Atkinson Next"; margin-bottom: 4.6mm; color: #000; text-decoration: none; }
+.te .tn { color: var(--b700); }
+.te .tk { color: var(--b700); text-transform: uppercase; display: block; }
+
+/* ------------------------------------------------------------- apertura capitolo */
+.bopen { color: #fff; }
+.bopen h2 { font: 400 55pt/65pt "Hedvig"; margin: 0; max-width: 250mm; }
+
+/* ------------------------------------------------------------- pagina: testo (voci in griglia) */
+.bsec { min-height: 10mm; }
+.bsec .intro { max-width: 175mm; margin-top: 4mm; }
+.items { display: grid; grid-template-columns: repeat(2, 80mm); column-gap: 13.5mm; row-gap: 9mm; margin-top: 10mm; padding-left: 3.6mm; }
+.items.n3 { grid-template-columns: repeat(3, 80mm); }
+.it .ih { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); text-transform: uppercase; margin: 0 0 5mm; }
+.it p { margin-bottom: 2.4mm; }
+.card .ct, .grid4 .gt { margin: 0 0 2mm; }
+.cols2 { columns: 2; column-gap: 13.5mm; max-width: 173.5mm; margin-top: 10mm; }
+.closing { margin-top: 10mm; max-width: 190mm; }
+.li { padding-left: 4.5mm; text-indent: -4.5mm; }
+.li::before { content: "■"; color: var(--b700); font-size: 6pt; display: inline-block; width: 4.5mm; text-indent: 0; vertical-align: 1.5pt; }
+
+/* ------------------------------------------------------------- pagina: card */
+.cards { display: flex; gap: 4.3mm; margin-top: 14mm; align-items: stretch; }
+.card { flex: 1 1 0; background: #F0F0F0; padding: 4.7mm 4.7mm 8mm; }
+.card .cic { width: 10mm; height: 10mm; background: var(--b700); display: flex; align-items: center; justify-content: center; margin-bottom: 4.3mm; }
+.card .cic img { width: 6.4mm; height: 6.4mm; filter: brightness(0) invert(1); }
+.card .ch { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); margin: 0 0 4.6mm; }
+.card .ct { font: 400 10pt/12pt "Atkinson Next"; }
+
+/* ------------------------------------------------------------- pagina: colore (foto o bluette al vivo, testo bianco) */
+.bcolor { color: #fff; }
+.bcolor .txt { max-width: 85mm; padding-left: 3.6mm; margin-top: 10mm; }
+.bcolor .it .ih { color: var(--on-dark); }
+
+/* ------------------------------------------------------------- pagina: prodotto (cerchio a destra) */
+.bprod .left { position: relative; z-index: 1; }
+.bprod .left { width: 122mm; }
+.bprod .sub { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); text-transform: uppercase; margin: 12mm 0 6mm; }
+.bprod .feats { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 4mm; margin-top: 4mm; }
+.bprod .feat { font: 400 10pt/12pt "Atkinson Next"; color: var(--b700); text-transform: uppercase; }
+.circle { position: absolute; left: 146.4mm; top: 11.5mm; width: 154mm; height: 154mm; border-radius: 50%; overflow: hidden; }
+.circle.c-magenta { background: #FF00FF; } .circle.c-verde { background: #00E179; } .circle.c-lime { background: var(--lime); } .circle.c-bluette { background: var(--b700); }
+.circle img { position: absolute; display: block; }
+.circle.fit-ritaglia img { inset: 0; width: 154mm; height: 154mm; }
+.circle.fit-sopra { overflow: visible; }
+.circle.fit-sopra img { left: -0.9mm; top: 6.4mm; width: 155.6mm; height: 143.1mm; object-fit: contain; }
+
+/* ------------------------------------------------------------- pagina: numeri */
+.knums { display: flex; justify-content: space-between; gap: 7mm; margin-top: 12mm; padding-right: 6mm; }
+.knums.n3, .knums.n4 { justify-content: flex-start; gap: 22mm; }
+.kn { flex: 0 0 auto; min-width: 26mm; }
+.kn .kv { font: 400 50pt/52pt "Atkinson Next"; color: var(--b700); white-space: nowrap; }
+.kn .ku { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); margin-top: 1mm; }
+.kn .kd { font: 400 10pt/12pt "Atkinson Next"; margin-top: 4.6mm; width: 36mm; }
+.logoband { position: absolute; left: -3mm; width: 309mm; top: 107mm; height: 73mm; background: #F0F0F0; padding: 6mm 15.7mm 0; box-sizing: border-box; }
+.logoband img { display: block; max-width: 277.6mm; max-height: 42mm; margin: 0 auto; }
+
+/* ------------------------------------------------------------- pagina: griglia (progetti) */
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 7.5mm; row-gap: 8mm; margin-top: 14mm; padding-left: 3mm; }
+.grid4.n3 { grid-template-columns: repeat(3, 1fr); }
+.grid4 .gh { font: 400 12pt/14.5pt "Atkinson Next"; color: var(--b700); margin: 0 0 3mm; }
+.grid4 .gt { font: 400 10pt/12pt "Atkinson Next"; }
+
+/* ------------------------------------------------------------- pagina: citazione */
+.bquote { padding: 21mm 0 0 34.7mm; }
+.bquote .q { font: 400 40pt/51pt "Hedvig"; margin: 0 0 6mm; max-width: 225mm; }
+.bquote .q strong { font-weight: 400; color: var(--hl); }
+
+/* ------------------------------------------------------------- quarta di copertina */
+.bback { height: 100%; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+.bback .top { display: flex; justify-content: space-between; gap: 20mm; }
+.bback .logo { width: 90mm; display: block; }
+.bback .about { font: 400 9pt/10.8pt "Atkinson Next"; max-width: 141mm; }
+.bback .bot { display: flex; justify-content: space-between; align-items: flex-end; }
+.offices { display: flex; margin-bottom: 9mm; }
+.office { border-left: .35mm solid var(--on-dark); padding: 0 3mm 0 3.2mm; width: 51mm; box-sizing: border-box; }
+.office .on { font: 600 12pt/14.5pt "Atkinson Next"; color: var(--on-dark); text-transform: uppercase; margin-bottom: 3.5mm; }
+.office .on small { font-size: 12pt; text-transform: none; font-weight: 600; }
+.office .oa { font: 400 10pt/12pt "Atkinson Next"; }
+.links { display: flex; gap: 7mm; }
+.lk { display: flex; gap: 2.4mm; align-items: center; }
+.lk .li2 { width: 6.5mm; height: 6.5mm; background: var(--on-dark); }
+.lk .li2 svg { width: 6.5mm; height: 6.5mm; display: block; }
+.lk .ll { background: var(--on-dark); color: var(--dark-ink); font: 600 7.1pt/6.5mm "Atkinson Next"; text-transform: uppercase; padding: 0 2.2mm; letter-spacing: .02em; }
+
+.ph-empty { color: var(--b700); font: 400 10pt/12pt "Atkinson Mono"; }
+
+/* sulle pagine scure l'accento è quello «su scuro» del brand (Lime per OE e T33, blu chiaro per Civiqa) */
+.dark .chiprow .ci, .dark .chiprow .cl { background: var(--on-dark); color: var(--dark-ink); }

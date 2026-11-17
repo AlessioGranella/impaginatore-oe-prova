@@ -4,6 +4,8 @@
 import css from './report.css?raw'
 import type { Block, Doc, ImageRef, Section, TableBlock } from '../types'
 import { imageKey } from './images'
+import { brandOf, type BrandDef } from './brand'
+import { buildBrochure, brochureNeeds } from './brochure'
 
 export const FORMATS = {
   a4v: { label: 'A4 verticale', PW: 210, PH: 297, MT: 22, MR: 18, MB: 26, ML: 18, BAND: 118, SIDE: 44.75, SIDEW: 38.5, C1COLS: 1, C2COLS: 2, TOCC: 2, H1: 50, H2: 44, OTOP: 30, CTW: 165, OSW: 150, OSC: 1, HLCOLS: '1fr 1fr', HKH: 42, KPIMAX: 3, ELMAX: 3 },
@@ -11,7 +13,14 @@ export const FORMATS = {
 } as const
 type F = (typeof FORMATS)[keyof typeof FORMATS]
 
-export function cssFor(fmt: keyof typeof FORMATS, mode: 'digital' | 'print', base: string): string {
+/** Colori del brand scritti direttamente nel CSS (var(--b700) → #4400B3): niente dipendenza dalle variabili CSS. */
+export function applyBrand(css: string, b: BrandDef, base: string): string {
+  let out = css
+  for (const [k, v] of Object.entries(b.vars)) out = out.split(`var(${k})`).join(v)
+  return out.replace(/url\(fonts\//g, `url(${base}fonts/`).replace(/url\(logos\//g, `url(${base}logos/${b.dir}`)
+}
+
+export function cssFor(fmt: 'a4v' | 'a4o', mode: 'digital' | 'print', base: string, brand: BrandDef = brandOf('oe')): string {
   const f = FORMATS[fmt]
   const bleed = mode === 'print' ? 3 : 0
   const r1 = (n: number) => Math.round(n * 10) / 10
@@ -20,7 +29,7 @@ export function cssFor(fmt: keyof typeof FORMATS, mode: 'digital' | 'print', bas
     BAND1: r1(f.BAND * 0.81), BANDPAD1: r1(f.BAND * 0.81 - f.MB), BAND2: r1(f.BAND * 0.61), BANDPAD2: r1(f.BAND * 0.61 - f.MB),
     BLEED: mode === 'print' ? 'bleed: 3mm;' : '',
   }
-  return css.replace(/@([A-Z0-9]+)@/g, (_, k: string) => String(vals[k])).replace(/url\((fonts|logos)\//g, `url(${base}$1/`)
+  return applyBrand(css.replace(/@([A-Z0-9]+)@/g, (_, k: string) => String(vals[k])), brand, base)
 }
 
 /* ------------------------------------------------------------------ testo */
@@ -52,8 +61,10 @@ export type ImgMap = Map<string, string>
 class Renderer {
   F: F
   contentW: number
+  B: BrandDef
   constructor(public doc: Doc, public mode: 'digital' | 'print', public imgs: ImgMap, public base: string) {
-    this.F = FORMATS[doc.meta.format] ?? FORMATS.a4v
+    this.F = FORMATS[doc.meta.format as 'a4v' | 'a4o'] ?? FORMATS.a4v
+    this.B = brandOf(doc.meta.brand)
     this.contentW = this.F.PW - this.F.ML - this.F.MR
   }
   img(ref: ImageRef | null | undefined, w: number, h: number) { return ref?.asset ? this.imgs.get(imageKey(ref, w, h)) ?? null : null }
@@ -174,7 +185,7 @@ class Renderer {
   }
 
   section(s: Section, chapname: string, first: boolean): string {
-    const F = this.F, L = s.layout || ({} as Section['layout']), sid = attr(s.id), logo = (n: string) => `${this.base}logos/${n}`
+    const F = this.F, L = s.layout || ({} as Section['layout']), sid = attr(s.id), logo = (n: string) => `${this.base}logos/${this.B.dir}${n}`
     if (L.mode === 'highlights') {
       const tab = s.blocks.find(b => b.type === 'table') as TableBlock | undefined
       const items = tab ? this.rowsOf(tab).map(r => `<div class="hk"><div class="hn">${inline(r[0] ?? '')}</div><div class="hl">${inline(r[1] ?? '')}</div></div>`).join('') : ''
@@ -186,7 +197,7 @@ class Renderer {
     let band = ''
     const bi = L.band ? this.img(L.band, F.PW + 6, F.BAND) : null
     if (bi) band = `<div class="pfl"><img src="${logo('logo-mark-black.svg')}" alt=""></div><div class="pfr"></div>`
-      + `<div class="band" style="background-image:linear-gradient(to top, rgba(39,0,101,.55), rgba(39,0,101,0) 30%), url(${bi})"><div class="bfoot"><img src="${logo('logo-mark-white.svg')}" alt=""><span class="bpn"></span></div></div>`
+      + `<div class="band" style="background-image:linear-gradient(to top, rgba(${this.B.vars['--shade']},.55), rgba(${this.B.vars['--shade']},0) 30%), url(${bi})"><div class="bfoot"><img src="${logo('logo-mark-white.svg')}" alt=""><span class="bpn"></span></div></div>`
     const body: string[] = []
     let lead = '', firstText = true
     for (const b of s.blocks) {
@@ -206,12 +217,12 @@ class Renderer {
   }
 
   html(): string {
-    const F = this.F, d = this.doc, logo = (n: string) => `${this.base}logos/${n}`
+    const F = this.F, d = this.doc, logo = (n: string) => `${this.base}logos/${this.B.dir}${n}`, dark = this.B.vars['--b900']
     const parts: string[] = [`<div class="pfl"><img src="${logo('logo-mark-black.svg')}" alt=""></div><div class="pfr"></div>`]
     const PWB = F.PW + 6, PHB = F.PH + 6
     const ci0 = this.img(d.cover.image, PWB, PHB)
-    parts.push(`<div class="cover" data-bid="${attr(d.cover.id || 'cover')}"><div class="ph" style="${ci0 ? `background-image:url(${ci0})` : 'background:#270065'}"></div><div class="shade-top"></div><div class="shade-bot"></div>`
-      + `<img class="logo" src="${logo('logo-white.svg')}" alt="OpenEconomics"><div class="ctitle"><h1>${esc(d.cover.title || '')}</h1><div class="csub">${esc(d.cover.subtitle || '')}</div></div></div>`)
+    parts.push(`<div class="cover" data-bid="${attr(d.cover.id || 'cover')}"><div class="ph" style="${ci0 ? `background-image:url(${ci0})` : `background:${dark}`}"></div><div class="shade-top"></div><div class="shade-bot"></div>`
+      + `<img class="logo" src="${logo('logo-white.svg')}" alt="${this.B.name}"><div class="ctitle"><h1>${esc(d.cover.title || '')}</h1><div class="csub">${esc(d.cover.subtitle || '')}</div></div></div>`)
     if (d.toc?.show !== false && d.chapters.length) {
       const tl = d.chapters.map((ch, i) => `<div class="tc"><a href="#${attr(ch.id)}"><span class="tn">${pad(i + 1)}</span>${esc(ch.title)}</a></div>`
         + ch.sections.filter(s => s.title).map(s => `<div class="ts"><a class="tlink" href="#${attr(s.id)}">${esc(s.title)}</a></div>`).join('')).join('')
@@ -220,22 +231,24 @@ class Renderer {
     d.chapters.forEach((ch, i) => {
       const oi = this.img(ch.image, PWB, PHB)
       const chapname = `${pad(i + 1)} ${ch.title}`
-      parts.push(`<div class="opener" id="${attr(ch.id)}" data-bid="${attr(ch.id)}"><div class="ph" style="${oi ? `background-image:url(${oi})` : 'background:#270065'}"></div><div class="shade-top"></div><div class="shade-bot soft"></div>`
+      parts.push(`<div class="opener" id="${attr(ch.id)}" data-bid="${attr(ch.id)}"><div class="ph" style="${oi ? `background-image:url(${oi})` : `background:${dark}`}"></div><div class="shade-top"></div><div class="shade-bot soft"></div>`
         + `<div class="otext"><span class="chip">${esc(chapname)}</span><h2>${esc(ch.title)}</h2></div><ul class="osec">${ch.sections.filter(s => s.title).map(s => `<li>${esc(s.title)}</li>`).join('')}</ul>`
         + `<img class="omark" src="${logo('logo-mark-white.svg')}" alt=""><div class="chapmark">${esc(chapname)}</div></div>`)
       ch.sections.forEach((s, si) => parts.push(this.section(s, chapname, si === 0)))
     })
-    if (d.back?.show !== false) parts.push(`<div class="back" data-bid="back"><img class="logo" src="${logo('logo-white.svg')}" alt="OpenEconomics"></div>`)
-    return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(d.meta.title || d.cover.title)} — OpenEconomics</title>`
-      + `<style>${cssFor(d.meta.format in FORMATS ? d.meta.format : 'a4v', this.mode, this.base)}</style></head><body>${parts.join('')}</body></html>`
+    if (d.back?.show !== false) parts.push(`<div class="back" data-bid="back"><img class="logo" src="${logo('logo-white.svg')}" alt="${this.B.name}"></div>`)
+    return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(d.meta.title || d.cover.title)} — ${this.B.name}</title>`
+      + `<style>${cssFor(d.meta.format === 'a4o' ? 'a4o' : 'a4v', this.mode, this.base, this.B)}</style></head><body>${parts.join('')}</body></html>`
   }
 }
 
-export const buildHtml = (doc: Doc, mode: 'digital' | 'print', imgs: ImgMap, base: string) => new Renderer(doc, mode, imgs, base).html()
+export const buildHtml = (doc: Doc, mode: 'digital' | 'print', imgs: ImgMap, base: string) =>
+  doc.meta.kind === 'brochure' ? buildBrochure(doc, mode, imgs, base) : new Renderer(doc, mode, imgs, base).html()
 
 /** Tutte le immagini che servono al documento, con la misura in mm (per il ritaglio). */
 export function imageNeeds(doc: Doc): { ref: ImageRef; w: number; h: number; whole?: boolean }[] {
-  const F = FORMATS[doc.meta.format] ?? FORMATS.a4v
+  if (doc.meta.kind === 'brochure') return brochureNeeds(doc)
+  const F = FORMATS[doc.meta.format as 'a4v' | 'a4o'] ?? FORMATS.a4v
   const out: { ref: ImageRef; w: number; h: number; whole?: boolean }[] = []
   const PWB = F.PW + 6, PHB = F.PH + 6, cw = F.PW - F.ML - F.MR
   if (doc.cover.image) out.push({ ref: doc.cover.image, w: PWB, h: PHB })

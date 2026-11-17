@@ -6,17 +6,20 @@ import { buildFile, canLink, download, fileName, linkFile, linkedName, unlink, w
 import type { Comment, Doc, DocFull, User } from '../types'
 import TopBar from '../ui/TopBar'
 import { Icon, Menu, Modal, useToast } from '../ui/ui'
-import Comments from './Comments'
+import Comments, { Composer } from './Comments'
+import AiPanel from './AiPanel'
+import { inline } from '../local/engine'
 import Inspector from './Inspector'
-import LivePreview, { type LivePreviewHandle, type Pin, type Warn } from './LivePreview'
+import LivePreview, { type LivePreviewHandle, type Mark, type Pin, type TextSel, type Warn } from './LivePreview'
 import Outline from './Outline'
-import { clone, locate, selFromId, type Sel } from './store'
+import { blockExcerpt, blockLabel, clone, locate, selFromId, type Sel } from './store'
 import { Versions } from './Versions'
 import { PhotoDrop, PhotoReport } from './PhotoReport'
 import type { Placement } from '../local/place'
 
-type Tab = 'modifica' | 'commenti' | 'versioni'
-const AUTO_PREVIEW_MS = 900
+type Tab = 'modifica' | 'ai' | 'commenti' | 'versioni'
+/** pausa dopo l'ultima modifica prima di reimpaginare (nell'iframe nascosto: chi scrive non vede niente muoversi) */
+const AUTO_PREVIEW_MS = 700
 
 export default function Editor({ id, focusComment }: { id: string; focusComment: string | null }) {
   const toast = useToast()
@@ -48,6 +51,11 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
   const [photoReplace, setPhotoReplace] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoResult, setPhotoResult] = useState<Placement[] | null>(null)
+  // frase selezionata nella pagina: barra «Commenta / Chiedi una modifica» e riquadro del commento
+  const [textSel, setTextSel] = useState<(TextSel & { top: number; left: number }) | null>(null)
+  const [quoteBox, setQuoteBox] = useState<(TextSel & { top: number; left: number }) | null>(null)
+  const [aiQuoteSel, setAiQuote] = useState<{ bid: string; quote: string } | null>(null)
+  const [aiPrefill, setAiPrefill] = useState<string | null>(null)
 
   // anteprima
   const preview = useRef<LivePreviewHandle>(null)
@@ -171,6 +179,16 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
     } finally { setFitting(false); setBusy(false) }
   }
 
+  // testo cambiato nell'ispettore: si scrive subito nella pagina visibile, la reimpaginazione arriva dopo senza salti
+  const prevDraft = useRef<Doc | null>(null)
+  useEffect(() => {
+    const prev = prevDraft.current
+    prevDraft.current = draft
+    if (!draft || !prev || viewing || sel?.kind !== 'block') return
+    const a = locate(draft, sel.id)?.block, b = locate(prev, sel.id)?.block
+    if (a && b && 'html' in a && 'html' in b && a.html !== b.html && a.type === b.type) preview.current?.patch(a.id, inline(a.html))
+  }, [draftJson])
+
   useEffect(() => {
     if (!draft || viewing || draftJson === renderedJson) return
     const t = window.setTimeout(() => render(draft), renderedJson ? AUTO_PREVIEW_MS : 50)
@@ -291,6 +309,13 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
     return { pins, counts }
   }, [comments, shownDoc])
 
+  const marks = useMemo<Mark[]>(() => comments.filter(c => !c.parent_id && !c.resolved && c.block_id && c.quote).map(c => ({ threadId: c.id, blockId: c.block_id!, quote: c.quote! })), [comments])
+  // i commenti su una frase sono evidenziati nel testo: niente segnaposto numerato per loro
+  const blockPins = useMemo(() => pins.map(p => {
+    const n = comments.filter(c => !c.parent_id && !c.resolved && c.block_id === p.blockId && !c.quote).length
+    return n ? { ...p, count: n } : null
+  }).filter((x): x is Pin => !!x), [pins, comments])
+
   const selId = sel && 'id' in sel ? sel.id : sel?.kind === 'cover' ? (shownDoc?.cover.id ?? 'cover') : null
   const shownRef = useRef(shownDoc)
   shownRef.current = shownDoc
@@ -305,7 +330,32 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
   viewingRef.current = viewing
   const commentOn = (bid: string) => { setAnchor(bid); setTab('commenti') }
 
-  if (!info || !draft) return <><TopBar eyebrow="Impaginatore" title="Carico…" /><div className="progress"><i /></div></>
+  /* ------------------------------------------------------------ AI: bersaglio = punto selezionato */
+  const aiQuote = aiQuoteSel && aiQuoteSel.bid === selId ? aiQuoteSel.quote : undefined
+  const aiFocus = useMemo(() => {
+    const d = shownDoc
+    if (!d || !sel) return { id: null, label: 'documento intero' }
+    if (sel.kind === 'cover') return { id: 'cover', label: 'copertina', quote: aiQuote }
+    const w = locate(d, sel.id)
+    if (!w) return { id: null, label: 'documento intero' }
+    if (w.block) return { id: sel.id, label: `${blockLabel(w.block)} «${blockExcerpt(w.block, 50)}» (sezione «${w.sec?.title || w.ch.title}»)`, quote: aiQuote }
+    if (w.sec) return { id: sel.id, label: `sezione «${w.sec.title || w.ch.title}»`, quote: aiQuote }
+    return { id: sel.id, label: `capitolo «${w.ch.title}»`, quote: aiQuote }
+  }, [sel, shownDoc, aiQuote])
+  const applyAi = (d: Doc, touched: string[]) => {
+    update(x => { Object.assign(x, d) })
+    const first = touched[0]
+    if (first) { const s = selFromId(d, first); if (s) setSel(s) }
+  }
+  const askAiOnSel = (s: TextSel) => {
+    const doc = shownRef.current
+    if (doc) setSel(selFromId(doc, s.bid))
+    setAiQuote({ bid: s.bid, quote: s.quote })
+    setTextSel(null)
+    setTab('ai'); setAiPrefill(s.quote)
+  }
+
+  if (!info || !draft) return <><TopBar eyebrow="Layout Designer" title="Carico…" /><div className="progress"><i /></div></>
 
   const status = viewing ? null : dirty
     ? <span className="oe-badge oe-badge--warning">Modifiche non salvate</span>
@@ -372,19 +422,37 @@ export default function Editor({ id, focusComment }: { id: string; focusComment:
           <Outline doc={shownDoc!} sel={sel} setSel={s => { setSel(s); if (tab === 'versioni') setTab('modifica') }} counts={counts} canEdit={canEdit} update={update} />
         </aside>
         <section className="ed__preview ed__preview--live" aria-label="Anteprima delle pagine">
-          <LivePreview ref={preview} selId={selId} onPick={pick} pins={viewing ? [] : pins} onPin={t => { setActiveThread(t); setTab('commenti') }}
+          <LivePreview ref={preview} selId={selId} onPick={pick} pins={viewing ? [] : blockPins} marks={viewing ? [] : marks} onPin={t => { setActiveThread(t); setTab('commenti') }}
+            onTextSel={s => { setTextSel(s); if (s) setQuoteBox(null) }} brochure={draft.meta.kind === 'brochure'}
             busy={busy} info={pvInfo} stale={!viewing && draftJson !== renderedJson} warnings={viewing ? [] : warnings}
-            onFit={autoFit} fitting={fitting} onGoSection={sid => setSel({ kind: 'section', id: sid })} onRefresh={() => draft && render(draft)} />
+            onFit={autoFit} fitting={fitting} onGoSection={sid => setSel({ kind: 'section', id: sid })} onRefresh={() => draft && render(draft)}
+            overlay={<>
+              {textSel && !quoteBox && (
+                <div className="selbar" style={{ top: Math.max(4, textSel.top - 44), left: textSel.left }} role="toolbar" aria-label="Frase selezionata">
+                  <button className="oe-btn oe-btn--primary oe-btn--sm" onMouseDown={e => e.preventDefault()} onClick={() => { setQuoteBox(textSel); setTextSel(null) }}><Icon name="comment" />Commenta</button>
+                  {canEdit && <button className="oe-btn oe-btn--secondary oe-btn--sm" onMouseDown={e => e.preventDefault()} onClick={() => askAiOnSel(textSel)}>Chiedi una modifica</button>}
+                </div>
+              )}
+              {quoteBox && (
+                <div className="quotebox" style={{ top: quoteBox.top + quoteBox.h + 8, left: Math.max(12, quoteBox.left - 180) }} role="dialog" aria-label="Commento sulla frase">
+                  <div className="cm__quote">«{quoteBox.quote.length > 140 ? quoteBox.quote.slice(0, 139) + '…' : quoteBox.quote}»</div>
+                  <Composer docId={id} users={users} anchor={quoteBox.bid} quote={quoteBox.quote} autoFocus placeholder="Scrivi il commento. Con @ citi un collega." onCancel={() => setQuoteBox(null)}
+                    onSent={() => { setQuoteBox(null); loadComments(); if (linked) writeFile(true) }} />
+                </div>
+              )}
+            </>} />
         </section>
         <aside className="ed__side">
           <div className="oe-tabs" role="tablist">
             <button role="tab" aria-selected={tab === 'modifica'} className={`oe-tab${tab === 'modifica' ? ' is-active' : ''}`} onClick={() => setTab('modifica')}>Modifica</button>
+            <button role="tab" aria-selected={tab === 'ai'} className={`oe-tab${tab === 'ai' ? ' is-active' : ''}`} onClick={() => setTab('ai')}>Chiedi all'AI</button>
             <button role="tab" aria-selected={tab === 'commenti'} className={`oe-tab${tab === 'commenti' ? ' is-active' : ''}`} onClick={() => { setTab('commenti'); if (selId) setAnchor(sel?.kind === 'cover' ? 'cover' : selId) }}>Commenti{openCount ? ` (${openCount})` : ''}</button>
             <button role="tab" aria-selected={tab === 'versioni'} className={`oe-tab${tab === 'versioni' ? ' is-active' : ''}`} onClick={() => setTab('versioni')}>Versioni</button>
           </div>
           <div className="ed__panel" role="tabpanel">
             {tab === 'modifica' && <Inspector doc={shownDoc!} sel={sel} setSel={setSel} update={update} canEdit={canEdit} docId={id}
               onComment={commentOn} focusNew={focusNew} setFocusNew={setFocusNew} />}
+            {tab === 'ai' && <AiPanel doc={shownDoc!} focus={aiFocus} canEdit={canEdit} onApply={applyAi} prefill={aiPrefill} clearPrefill={() => setAiPrefill(null)} />}
             {tab === 'commenti' && <Comments docId={id} doc={shownDoc!} comments={comments} users={users} anchor={anchor} setAnchor={setAnchor}
               active={activeThread} setActive={setActiveThread} reload={() => { loadComments(); if (linked) writeFile(true) }} onGoTo={bid => { const s = selFromId(shownDoc!, bid); if (s) setSel(s) }} />}
             {tab === 'versioni' && <Versions docId={id} head={head} viewing={viewing?.n ?? null} onView={view} onRestore={restore}

@@ -90,6 +90,7 @@ export function usedAssets(d: Doc): Set<string> {
   const s = new Set<string>()
   const add = (r: ImageRef | null | undefined) => { if (r?.asset) s.add(r.asset) }
   add(d.cover.image)
+  add(d.back?.image)
   for (const ch of d.chapters) {
     add(ch.image)
     for (const se of ch.sections) {

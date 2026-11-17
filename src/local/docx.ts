@@ -2,7 +2,8 @@
    Il .docx è uno zip: si leggono word/document.xml, word/styles.xml e le immagini in word/media. */
 import JSZip from 'jszip'
 import { nid } from '../api'
-import type { Block, Chapter, Doc, Section, View } from '../types'
+import type { Block, Chapter, Doc, Kind, Section, View } from '../types'
+import { guessPage } from './brochure'
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -34,7 +35,7 @@ function guessView(rows: string[][], caption: string): View {
   return 'tabella'
 }
 
-export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) => Promise<string>, defaults?: { cover?: string; chapters?: string[] }): Promise<{ doc: Doc; report: ImportReport }> {
+export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) => Promise<string>, defaults?: { cover?: string; chapters?: string[] }, kind: Kind = 'bilancio'): Promise<{ doc: Doc; report: ImportReport }> {
   const zip = await JSZip.loadAsync(file)
   const xml = async (p: string) => { const f = zip.file(p); return f ? new DOMParser().parseFromString(await f.async('text'), 'application/xml') : null }
   const docXml = await xml('word/document.xml')
@@ -115,6 +116,9 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
   const levels = [...new Set(items.flatMap(i => (i.k === 'p' && headingLevel(i.style) ? [headingLevel(i.style)!] : [])))].sort()
   const chapLv = levels.length >= 2 ? levels[0] : null
   const secLv = levels.length >= 2 ? levels[1] : levels[0] ?? null
+  // brochure: il livello sotto la sezione, se arriva subito dopo il titolo di sezione, è il titolo grande della pagina
+  // e il titolo di sezione diventa l'etichetta della chip (es. «Il contesto» + «Troppe incognite, pochi strumenti»)
+  const subLv = levels.length >= 3 ? levels[2] : null
 
   const doc: Doc = {
     meta: { title: '', format: 'a4v' },
@@ -158,6 +162,7 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
       if (!ch) { ch = { id: nid(), title: doc.cover.title || 'Capitolo', image: null, sections: [] }; doc.chapters.push(ch) }
       sec = newSec(txt); ch.sections.push(sec); report.sezioni++; continue
     }
+    if (kind === 'brochure' && lv !== null && lv === subLv && sec && !sec.blocks.length && !sec.kicker) { sec.kicker = sec.title; sec.title = txt; continue }
     const ph = txt.match(/^\[?\s*(?:foto|immagine|image|img)\s*[:–-]\s*(.+?)\s*\]?$/i)
     if (ph && txt.length < 140) { push({ id: nid(), type: 'image', image: null, caption: '', ratio: 0.5625, hint: ph[1]! }); continue }
     if (lv !== null || (/^[A-Z]{1,3}\d{1,3}\s+\S/.test(txt) && txt.length < 90 && !txt.endsWith('.'))) push({ id: nid(), type: 'h4', html: esc(txt) })
@@ -173,6 +178,30 @@ export async function importDocx(file: Blob, saveImage: (b: Blob, name: string) 
     else report.scartate.push(line)
   }
   if (!doc.cover.title && doc.chapters.length) { doc.cover.title = doc.chapters[0]!.title; doc.meta.title = doc.cover.title }
+
+  if (kind === 'brochure') {
+    doc.meta.kind = 'brochure'
+    doc.meta.format = 'br'
+    doc.toc.title = 'Indice'
+    for (const c of doc.chapters) for (const s of c.sections) {
+      for (const b of s.blocks) {
+        if (b.type !== 'table') continue
+        // nella brochure le tabelle sono elenchi di voci (titolo · testo) o di numeri, senza riga d'intestazione
+        const rows = b.rows.filter(r => r.some(x => x.trim()))
+        const firstNum = rows.length >= 2 && rows.every(r => /\d/.test(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)
+        const headLike = rows.length > 2 && !/\d/.test(rows[0]![0] ?? '') && firstNum === false && rows[0]!.every(x => x.length <= 24) && rows.slice(1).some(r => r.some(x => x.length > 40))
+        if (b.view === 'tabella') { b.header = headLike; if (rows.slice(headLike ? 1 : 0).every(r => /\d/.test(r[0] ?? '') && (r[0] ?? '').trim().length <= 12)) b.view = 'kpi' }
+      }
+      s.layout.page = guessPage(s)
+      if (s.layout.page === 'prodotto') {
+        // l'immagine del Word va nel cerchio a destra
+        const i = s.blocks.findIndex(b => b.type === 'image')
+        const b = s.blocks[i]
+        if (b && b.type === 'image') { s.layout.band = b.image; s.layout.circleFit = 'sopra'; s.blocks.splice(i, 1) }
+      }
+    }
+    return { doc, report }
+  }
 
   for (const c of doc.chapters) for (const s of c.sections) {
     const nText = s.blocks.filter(b => b.type === 'p' || b.type === 'li').length

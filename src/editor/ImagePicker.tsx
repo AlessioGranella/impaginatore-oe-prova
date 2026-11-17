@@ -8,7 +8,7 @@ import { Icon, Modal, Segment, useToast } from '../ui/ui'
 export const loadLibrary = () => loadLib()
 
 /** Uso dell'immagine: decide il rapporto del ritaglio e lo stile delle immagini AI. */
-export type ImgUse = 'copertina' | 'apertura' | 'banda' | 'figura'
+export type ImgUse = 'copertina' | 'apertura' | 'banda' | 'figura' | 'chiusura' | 'pagina' | 'cerchio'
 
 /* ----------------------------------------------------------------- campo immagine nel pannello */
 export function ImageField({ value, onChange, aspect, use, docId, canEdit, optional, label }: {

@@ -9,7 +9,7 @@
 
 :root {
   --b900: #270065; --b800: #340088; --b700: #4400B3; --b500: #6E1AFF; --b300: #A16AFF; --b200: #B991FF; --b100: #D9C1FF; --b050: #EFE5FF;
-  --lime: #B9FF69; --g800: #2C2C2C; --g700: #545454; --g600: #6E6E6E; --g300: #D2D2D2; --g200: #E7E7E7; --g100: #F1F1F1;
+  --lime: #B9FF69; --pop-on: #000; --chip-ink: #4400B3; --on-dark: #B9FF69; --shade: 39,0,101; --g800: #2C2C2C; --g700: #545454; --g600: #6E6E6E; --g300: #D2D2D2; --g200: #E7E7E7; --g100: #F1F1F1;
 }
 
 /* ------------------------------------------------------------- pagine */
@@ -27,7 +27,7 @@
 ::footnote-call { content: none; } ::footnote-marker { content: none; }
 @page full { margin: 0; @top-left { content: none } @bottom-left { content: none } @bottom-right { content: none } }
 @page dark { background: var(--b900);
-  @top-left { color: var(--lime); }
+  @top-left { color: var(--on-dark); }
   @bottom-left { content: ""; background: url(logos/logo-mark-white.svg) no-repeat left center; background-size: 5.2mm 5.2mm; }
   @bottom-right { content: counter(page); font: 500 7pt/1 "Atkinson Mono"; color: #fff; } }
 
@@ -37,20 +37,20 @@ p { margin: 0 0 2.4mm; hyphens: auto; orphans: 2; widows: 2; }
 strong { font-weight: 600; }
 em, i { font-style: normal; } /* DS: mai il corsivo nei report */
 .chapmark { string-set: chap content(); height: 0; overflow: hidden; }
-.chip { display: inline-block; background: var(--lime); color: #000; font: 500 7pt/9pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; padding: 1.3mm 2mm 1.1mm; }
+.chip { display: inline-block; background: var(--lime); color: var(--pop-on); font: 500 7pt/9pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; padding: 1.3mm 2mm 1.1mm; }
 
 /* ------------------------------------------------------------- copertina, aperture, quarta */
 .cover, .opener, .back { page: full; position: relative; height: @PH@mm; break-before: page; break-after: page; }
 .cover .ph, .opener .ph { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm; background-size: cover; background-position: center; }
 .shade-top { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm;
-  background: linear-gradient(to bottom, rgba(39,0,101,.88) 0%, rgba(39,0,101,.55) 28%, rgba(39,0,101,0) 55%); }
+  background: linear-gradient(to bottom, rgba(var(--shade),.88) 0%, rgba(var(--shade),.55) 28%, rgba(var(--shade),0) 55%); }
 .shade-bot { position: absolute; top: -3mm; left: -3mm; width: @PWB@mm; height: @PHB@mm;
-  background: linear-gradient(to top, rgba(39,0,101,.9) 0%, rgba(39,0,101,.5) 25%, rgba(39,0,101,0) 50%); }
-.shade-bot.soft { background: linear-gradient(to top, rgba(39,0,101,.85) 0%, rgba(39,0,101,.45) 22%, rgba(39,0,101,0) 40%); }
+  background: linear-gradient(to top, rgba(var(--shade),.9) 0%, rgba(var(--shade),.5) 25%, rgba(var(--shade),0) 50%); }
+.shade-bot.soft { background: linear-gradient(to top, rgba(var(--shade),.85) 0%, rgba(var(--shade),.45) 22%, rgba(var(--shade),0) 40%); }
 .cover .logo { position: absolute; top: 18mm; left: @ML@mm; width: 58mm; }
 .cover .ctitle { position: absolute; left: @ML@mm; bottom: 30mm; width: @CTW@mm; }
 .cover h1 { font: 400 @H1@pt/1.08 "Hedvig"; color: #fff; margin: 0 0 7mm; }
-.cover .csub { font: 500 9pt/11pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; color: var(--lime); }
+.cover .csub { font: 500 9pt/11pt "Atkinson Mono"; letter-spacing: .04em; text-transform: uppercase; color: var(--on-dark); }
 .otext { position: absolute; top: @OTOP@mm; left: @ML@mm; width: @CTW@mm; }
 .opener h2 { margin: 6mm 0 9mm; font: 400 @H2@pt/1.09 "Hedvig"; color: #fff; }
 .opener .osec { position: absolute; left: @ML@mm; bottom: 26mm; width: @OSW@mm; margin: 0; padding: 0; list-style: none; color: #fff; font-size: 13pt; line-height: 19pt; columns: @OSC@; column-gap: 8mm; }
@@ -167,8 +167,8 @@ tr.grp td { background: var(--b050); font-weight: 500; color: var(--b700); }
 .hl-page .sechead h3 { color: #fff; font-size: 44pt; line-height: 48pt; }
 .hgrid { display: grid; grid-template-columns: @HLCOLS@; column-gap: 8mm; margin-top: 12mm; }
 .hk { border-top: .8pt solid var(--b500); padding-top: 5mm; min-height: @HKH@mm; box-sizing: border-box; }
-.hk:first-child { border-top-color: var(--lime); }
-.hn { font: 400 40pt/42pt "Hedvig"; color: var(--lime); margin-bottom: 3mm; }
+.hk:first-child { border-top-color: var(--on-dark); }
+.hn { font: 400 40pt/42pt "Hedvig"; color: var(--on-dark); margin-bottom: 3mm; }
 .hl { font-size: 9.5pt; line-height: 13pt; width: 90%; }
 
 /* ornamento pixel nella colonna di margine (sezioni a colonna singola) */
