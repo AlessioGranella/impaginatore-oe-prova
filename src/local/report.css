@@ -214,3 +214,14 @@ blockquote.big { font: 400 26pt/33pt "Hedvig"; color: var(--b700); width: 88%; m
 
 /* nessun asset grafico si deforma: marchi, icone e loghi a misura fissa restano in proporzione */
 img { object-fit: contain; }
+
+/* tabelle: sempre dentro la pagina. Colonne calcolate dal motore, parole lunghe a capo, corpo più piccolo se le colonne sono tante */
+table.fit { table-layout: fixed; }
+table.fit th, table.fit td { overflow-wrap: anywhere; word-break: normal; hyphens: auto; }
+table.fit th { hyphens: manual; }
+table.mid { font-size: 7pt; line-height: 9.5pt; }
+table.mid th { font-size: 6pt; line-height: 8pt; }
+table.dense { font-size: 6.5pt; line-height: 8.5pt; }
+table.dense th { font-size: 5.6pt; line-height: 7.5pt; letter-spacing: 0; }
+table.dense td, table.dense th { padding: 1.2mm .8mm; }
+.tbox { max-width: 100%; }

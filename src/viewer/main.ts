@@ -25,7 +25,7 @@ export interface ViewerApi {
 }
 
 const vp = document.getElementById('vp')!
-const viewer = new CoreViewer({ viewportElement: vp, window }, { renderAllPages: true, autoResize: true, pageViewMode: 'singlePage' as never, fitToScreen: false, zoom: 1 })
+const viewer = new CoreViewer({ viewportElement: vp, window }, { renderAllPages: true, autoResize: false, pageViewMode: 'singlePage' as never, fitToScreen: false, zoom: 1 })
 let readyResolve: (() => void) | null = null
 let errors: string[] = []
 viewer.addListener('readystatechange', () => { if (viewer.readyState === ReadyState.COMPLETE) readyResolve?.() })
@@ -85,6 +85,9 @@ const api: ViewerApi = {
     errors = []
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
     const done = new Promise<void>(r => { readyResolve = r })
+    // l'impaginazione si fa sempre a ingrandimento 1: Vivliostyle misura le colonne delle tabelle divise tra
+    // due pagine sullo schermo, e con lo zoom dell'anteprima le scriverebbe più larghe della pagina
+    vp.style.zoom = '1'
     viewer.loadDocument({ url })
     await done
     await settle()

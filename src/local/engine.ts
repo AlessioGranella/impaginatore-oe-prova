@@ -92,6 +92,8 @@ class Renderer {
   B: BrandDef
   /** sezione in modalità «citazione»: le citazioni diventano grandi, a tutta larghezza */
   bigQuote = false
+  /** larghezza in mm delle tabelle nella sezione corrente (esplicita: resta giusta anche quando la tabella si divide tra due pagine) */
+  tw = 0
   constructor(public doc: Doc, public mode: 'digital' | 'print', public imgs: ImgMap, public base: string) {
     this.F = FORMATS[doc.meta.format as 'a4v' | 'a4o'] ?? FORMATS.a4v
     this.B = brandOf(doc.meta.brand)
@@ -125,7 +127,20 @@ class Renderer {
       const cells = [...r, ...Array(Math.max(0, nc - r.length)).fill('')]
       return `<tr>${cells.map((c, j) => `<td class="${numcols.has(j) ? 'num' : ''}${tot}">${(c || '').split('\n').map(inline).join('<br>')}</td>`).join('')}</tr>`
     }).join('')
-    return `<div class="tbox">${this.cap(b.caption)}<table>${th}<tbody>${trs}</tbody></table></div>`
+    // larghezze delle colonne dal contenuto: la tabella non supera mai la pagina (table-layout fixed),
+    // le colonne con testo lungo prendono più spazio, nessuna è più stretta della sua parola più lunga (se possibile)
+    const weight = Array.from({ length: nc }, (_, j) => {
+      const cells = rows.map(r => plain(r[j] ?? '')).filter(Boolean)
+      if (!cells.length) return 4
+      const avg = cells.reduce((n, c) => n + c.length, 0) / cells.length
+      const word = Math.max(...cells.map(c => Math.max(...c.split(/\s+/).map(w => w.length))))
+      return Math.max(numcols.has(j) ? 7 : 5, Math.min(word * 1.15, 22), Math.min(avg, 60))
+    })
+    const tot = weight.reduce((a, c) => a + c, 0)
+    const TW = this.tw || this.contentW
+    const cg = `<colgroup>${weight.map(w => `<col style="width:${(w / tot * TW).toFixed(2)}mm">`).join('')}</colgroup>`
+    const dense = nc >= 7 ? ' dense' : nc >= 5 ? ' mid' : ''
+    return `<div class="tbox">${this.cap(b.caption)}<table class="fit${dense}" style="width:${TW.toFixed(2)}mm">${cg}${th}<tbody>${trs}</tbody></table></div>`
   }
 
   view(b: TableBlock): string {
@@ -237,6 +252,7 @@ class Renderer {
     const cols = L.cols ?? 2
     const ccls = cols === 1 ? 'c1' : cols === 'w' ? 'cw' : 'c2'
     const ncols = cols === 1 ? F.C1COLS : cols === 2 ? F.C2COLS : 1
+    this.tw = cols === 1 ? this.contentW - F.SIDE : this.contentW
     let band = ''
     const bi = L.band ? this.img(L.band, F.PW + 6, F.BAND) : null
     if (bi) band = `<div class="pfl"><img src="${logo('logo-mark-black.svg')}" alt=""></div><div class="pfr"></div>`
